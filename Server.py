@@ -1,31 +1,9 @@
-import socket
-import threading
-import base64
-
-
-users = {'user': '0000',
-         'user1': '0000',
-         'user2': '0000',
-         'salma': '0000',
-         'fatma': '0000',
-         'menna': '0000'}
+import Authentication
 
 connected_clients = []
-
-def authenticate(client_socket):
-    encoded_credentials = client_socket.recv(1024).decode('utf-8').strip()
-    decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
-    username, password = decoded_credentials.split(':')
-
-    if username in users and users[username] == password:
-        client_socket.send(b"Authentication successful\n")
-        return True
-    else:
-        client_socket.send(b"Authentication failed\nConnection Terminated")
-        return False
     
 def handle_client(client_socket):
-    if not authenticate(client_socket):
+    if not Authentication.authenticate(client_socket):
         client_socket.close()
         return
 
