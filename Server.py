@@ -1,8 +1,13 @@
 import socket
 import threading
 
-users = {'user1': 'password1',
-         'user2': 'password2'}
+users = {'user': '0000',
+         'user1': '0000',
+         'user2': '0000',
+         'salma': '0000',
+         'fatma': '0000',
+         'menna': '0000'}
+
 connected_clients = []
 
 def authenticate(client_socket):
@@ -15,7 +20,7 @@ def authenticate(client_socket):
         client_socket.send(b"Authentication successful\n")
         return True
     else:
-        client_socket.send(b"Authentication failed\n")
+        client_socket.send(b"Authentication failed\nConnection Terminated")
         return False
     
 def handle_client(client_socket):
@@ -33,7 +38,7 @@ def handle_client(client_socket):
             print(f"Received: {request}")
 
             # Send a response back to the client
-            response = f"Echo: {request}"
+            response = f"Echo: {request} \n"
             client_socket.send(response.encode('utf-8'))
     except ConnectionResetError:
         print("Client disconnected")
