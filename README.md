@@ -1,23 +1,23 @@
-#Implementing a Server Agent using HTTP Protocol
-##Overview
+# Implementing a Server Agent using HTTP Protocol
+## Overview
 
-##How to Run
-Running the Server
+## How to Run
+- Running the Server
 
-    Open a terminal and navigate to the directory containing main.py.
-    Execute the following command to start the server:
-
+        Open a terminal and navigate to the directory containing main.py.
+        Execute the following command to start the server:
+```
     python main.py
+```
+- Running the Client
 
-Running the Client
-
-    Open another terminal and navigate to the directory containing client.py.
-    Execute the following command to start the client:
-
+        Open another terminal and navigate to the directory containing client.py.
+        Execute the following command to start the client:
+```
     python client.py
+```
 
-
-##Contribution
+## Contribution
 - Salma Yousef
 - Menna Ayman
 - Fatma Ayman
