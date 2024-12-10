@@ -1,5 +1,7 @@
 import socket
 import threading
+import base64
+
 
 users = {'user': '0000',
          'user1': '0000',
@@ -11,10 +13,9 @@ users = {'user': '0000',
 connected_clients = []
 
 def authenticate(client_socket):
-    client_socket.send(b"Username: ")
-    username = client_socket.recv(1024).decode('utf-8').strip()
-    client_socket.send(b"Password: ")
-    password = client_socket.recv(1024).decode('utf-8').strip()
+    encoded_credentials = client_socket.recv(1024).decode('utf-8').strip()
+    decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
+    username, password = decoded_credentials.split(':')
 
     if username in users and users[username] == password:
         client_socket.send(b"Authentication successful\n")
@@ -31,13 +32,13 @@ def handle_client(client_socket):
     connected_clients.append(client_socket)
     try:
         while True:
-            # Receive data from the client
+            #receive data from the client
             request = client_socket.recv(1024).decode('utf-8')
             if not request:
                 break
             print(f"Received: {request}")
 
-            # Send a response back to the client
+            #send a response back 
             response = f"Echo: {request} \n"
             client_socket.send(response.encode('utf-8'))
     except ConnectionResetError:
