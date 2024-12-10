@@ -9,7 +9,7 @@ def main():
 
     while True:
         client_socket, addr = server.accept()
-        print(f"Accepted connection from {addr}")
+        print(f"Connection from {addr}")
         client_handler = threading.Thread(target=Server.handle_client, args=(client_socket,))
         client_handler.start()
 

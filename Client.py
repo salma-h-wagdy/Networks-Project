@@ -17,7 +17,8 @@ def start_client():
             nonce = server_message.split(": ")[1].strip()
             client_hash = Authentication.sha256_hash(f"{username}:{password}:{nonce}")
             auth_response = f"{encoded_credentials}:{client_hash}"
-            client.send(auth_response.encode('utf-8'))
+            http_request = f"POST /authenticate HTTP/1.1\r\nHost: localhost\r\nContent-Length: {len(auth_response)}\r\n\r\n{auth_response}"
+            client.send(http_request.encode('utf-8'))
             
     while True:
         # receive & print the server's message
@@ -26,7 +27,8 @@ def start_client():
         
         #send user input 
         user_input = input()
-        client.send(user_input.encode('utf-8'))
+        http_request = f"POST /message HTTP/1.1\r\nHost: localhost\r\nContent-Length: {len(user_input)}\r\n\r\n{user_input}"
+        client.send(http_request.encode('utf-8'))
             
             
 if __name__ == "__main__":
