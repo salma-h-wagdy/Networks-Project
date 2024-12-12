@@ -25,7 +25,6 @@
             var nonce = document.getElementById('nonce').value;
 
             console.log('nonce:', nonce);
-            // Combine the username, password, and nonce to form the string for hashing
             var inputString = username + ':' + password + ':' + nonce;
 
             // Convert the string into a buffer
@@ -39,10 +38,8 @@
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hash = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
 
-            // Set the hash in the hidden input field
             document.getElementById('hash').value = hash;
 
-            // Now, you can submit the form with the calculated hash
             document.getElementById('authenticateForm').submit();
         };
     </script>
