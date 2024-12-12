@@ -14,4 +14,4 @@ def main():
         client_handler.start()
 
 if __name__ == "__main__":
-    main()
+    Server.app.run(debug=True )

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication Test</title>
+    
+</head>
+<body>
+    <h1>Authenticate</h1>
+    <form id="authenticateForm" action="/authenticate" method="POST">
+        <label for="username">Username:</label><br>
+        <input type="text" id="username" name="username" required><br>
+        <label for="password">Password:</label><br>
+        <input type="password" id="password" name="password" required><br><br>
+        <input type="hidden" id="nonce" name="nonce" value="{{ nonce }}">
+        <input type="hidden" id="hash" name="hash"><br><br>
+        <input type="submit" value="Submit">
+    </form>
+
+    <script>
+        document.getElementById('authenticateForm').onsubmit = async function(event) {
+            event.preventDefault(); // Prevent form submission so we can handle it via JavaScript
+
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+            var nonce = document.getElementById('nonce').value;
+
+            console.log('nonce:', nonce);
+            // Combine the username, password, and nonce to form the string for hashing
+            var inputString = username + ':' + password + ':' + nonce;
+
+            // Convert the string into a buffer
+            const encoder = new TextEncoder();
+            const data = encoder.encode(inputString);
+
+            // Use the native Web Crypto API to hash the data using SHA-256
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+            // Convert the hash buffer into a hex string
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hash = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+
+            // Set the hash in the hidden input field
+            document.getElementById('hash').value = hash;
+
+            // Now, you can submit the form with the calculated hash
+            document.getElementById('authenticateForm').submit();
+        };
+    </script>
+</body>
+</html>
