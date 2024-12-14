@@ -8,10 +8,11 @@ import os
 from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import RequestReceived, DataReceived, StreamEnded
+import logging
 
 
 import Authentication
-
+logging.basicConfig(level=logging.DEBUG)
 connected_clients = []
     
 def handle_client(client_socket):
@@ -34,11 +35,11 @@ def handle_client(client_socket):
     conn.initiate_connection()
     secure_socket.sendall(conn.data_to_send())
     
-    nonce = Authentication.generate_nonce()
+    # nonce = Authentication.generate_nonce()
 
     connected_clients.append(secure_socket)
     try:
-        authenticated = False
+        # authenticated = False
         while True:
             data = secure_socket.recv(65535)
             if not data:
@@ -48,32 +49,62 @@ def handle_client(client_socket):
             for event in events:
                 if isinstance(event, RequestReceived):
                     headers = event.headers
-                    if not authenticated:
-                        if not Authentication.authenticate(headers, nonce):
+                    #print recieved headers
+                    print(f"headres: {headers}")
+                    headers_dict = {k.decode('utf-8'): v.decode('utf-8') for k, v in headers}
+                    path = headers_dict.get(':path', '/')
+                    print(f"path accessed {path}")
+                    if path == '/':
+                        # Serve the HTML file
+                        with open('auth.html', 'r') as f:
+                            html_content = f.read()
+
+                        response_headers = [
+                            (':status', '200'),
+                            ('content-length', str(len(html_content))),
+                            ('content-type', 'text/html'),
+                        ]
+                        conn.send_headers(event.stream_id, response_headers)
+                        conn.send_data(event.stream_id, html_content.encode('utf-8'), end_stream=True)
+                    elif path == '/authenticate':
+                        auth_header = headers_dict.get('authorization', None)
+                        if auth_header and ':' not in auth_header:
+                            # This is a nonce request
+                            nonce = Authentication.generate_nonce()
                             response_headers = [
                                 (':status', '401'),
                                 ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
                             ]
                             conn.send_headers(event.stream_id, response_headers, end_stream=True)
                         else:
-                            authenticated = True
-                            # Send successful response after authentication
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', '13'),
-                                ('content-type', 'text/plain'),
-                            ]
-                            conn.send_headers(event.stream_id, response_headers)
-                            conn.send_data(event.stream_id, b'Hello, world!', end_stream=True)
-                  
-                    else:   
-                        response_headers = [
-                            (':status', '200'),
-                            ('content-length', '13'),
-                            ('content-type', 'text/plain'),
-                        ]
-                        conn.send_headers(event.stream_id, response_headers)
-                        conn.send_data(event.stream_id, b'Hello, world!', end_stream=True)
+                            # This is an authentication request
+                            authenticated = Authentication.authenticate(headers_dict, nonce)
+                            logging.debug(f'Authentication result: {authenticated}')
+                            if not authenticated:
+                                response_headers = [
+                                    (':status', '401'),
+                                    ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
+                                ]
+                                conn.send_headers(event.stream_id, response_headers, end_stream=True)
+                            else:
+                                # authenticated = True
+                                # Send successful response after authentication
+                                response_headers = [
+                                    (':status', '200'),
+                                    ('content-length', '13'),
+                                    ('content-type', 'text/plain'),
+                                ]
+                                conn.send_headers(event.stream_id, response_headers)
+                                conn.send_data(event.stream_id, b'Success! :D', end_stream=True)
+                        
+                    # else:   
+                    #     response_headers = [
+                    #         (':status', '200'),
+                    #         ('content-length', '13'),
+                    #         ('content-type', 'text/plain'),
+                    #     ]
+                        # conn.send_headers(event.stream_id, response_headers)
+                        # conn.send_data(event.stream_id, b'Hello, world!', end_stream=True)
 
                 elif isinstance(event, DataReceived):
                     # Process incoming data here

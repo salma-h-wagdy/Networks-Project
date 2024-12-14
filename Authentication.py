@@ -8,6 +8,9 @@ import threading
 from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import RequestReceived, DataReceived, StreamEnded
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 users = {'user': '0000',
@@ -27,17 +30,24 @@ def sha256_hash(data):
     return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
 def authenticate(headers, nonce): #client_socket
+    # headers_dict = {}
+    auth_header = headers.get('authorization', None)
     auth_header = dict(headers).get('authorization', None)
+    print(f"authorization : {auth_header}")
     # auth_header = headers.get('authorization', None)
     if not auth_header:
         return False
     
-    encoded_credentials, client_hash = auth_header.split(':')
-    username, password = base64.b64decode(encoded_credentials).decode('utf-8').split(':')
-    server_hash = sha256_hash(f"{username}:{password}:{nonce}")
-    
-    if username in users and users[username] == password and client_hash == server_hash:
-        return True
+    try:
+        encoded_credentials, client_hash = auth_header.split(':')
+        username, password = base64.b64decode(encoded_credentials).decode('utf-8').split(':')
+        server_hash = sha256_hash(f"{username}:{password}:{nonce}")
+        print(f"client hash{client_hash}, server: {server_hash}")
+        
+        if username in users and users[username] == password and client_hash == server_hash:
+            return True
+    except Exception as e:
+        logging.error(f'Error during authentication: {e}')
     return False
     
     # nonce = generate_nonce()
