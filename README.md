@@ -1,21 +1,25 @@
 # Implementing a Server Agent using HTTP Protocol
 ## Overview
 This project aims to deliver a fully functional HTTP/2 server agent that integrates seamlessly with existing web technologies. The server agent will strictly adhere to specified behaviors, scenarios, message formats, and sequences, ensuring robust performance and appropriate error handling.
-## How to Run
-- Running the Server
 
-  Open a terminal and navigate to the directory containing main.py.
-  Execute the following command to start the server:
-```
+## How to Run
+
+### Running the Server
+
+1. Open a terminal and navigate to the directory containing `main.py`.
+2. Execute the following command to start the server:
+```sh
     python main.py
 ```
-- Running the Client
+### Using the Browser Client
 
-  Open another terminal and navigate to the directory containing client.py.
-  Execute the following command to start the client:
-```
-    python client.py
-```
+1. Open a web browser.
+2. Navigate to the URL where the server is running. For example:
+    ```
+    https://localhost:8443
+    ```
+3. You should see the authentication page. Click the "Authenticate" button and follow the prompts to enter your username and password.
+
 
 ## Contribution
 - Salma Yousef

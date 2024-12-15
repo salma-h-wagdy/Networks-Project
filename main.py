@@ -11,7 +11,9 @@ def main():
     
     while True:
         client_socket, addr = server_socket.accept()
-        print(f"Connection from {addr}")
+        client_ip, client_port = addr
+        print(f"Connection from {client_ip}:{client_port}")
+        # print(f"Connection from {addr}")
         Server.handle_client(client_socket)
         client_handler = threading.Thread(target=Server.handle_client, args=(client_socket,))
         client_handler.start()
