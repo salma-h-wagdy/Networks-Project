@@ -4,7 +4,7 @@ import Authentication
 
 def start_client():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(('127.0.0.1', 9999))
+    client.connect(('127.0.0.1', 8443))
 
     username = input("Username: ")
     password = input("Password: ")
