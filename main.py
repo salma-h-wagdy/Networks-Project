@@ -9,6 +9,10 @@ def main():
     server_socket.listen(5)
     print("HTTP/2 server listening on port 8443")
     
+    status_thread = threading.Thread(target=Server.server_status)
+    status_thread.daemon = True
+    status_thread.start()
+    
     while True:
         client_socket, addr = server_socket.accept()
         client_ip, client_port = addr

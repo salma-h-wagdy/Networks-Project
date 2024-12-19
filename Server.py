@@ -1,24 +1,31 @@
-import socket
+# import socket
+# import threading
 import ssl
-import threading
-import base64
-import hashlib
-import time
 import os
 from h2.config import H2Configuration
 from h2.connection import H2Connection
-from h2.events import RequestReceived, DataReceived, StreamEnded
+from h2.events import RequestReceived, DataReceived, StreamEnded, WindowUpdated, SettingsAcknowledged, StreamReset, PriorityUpdated
+from h2.exceptions import ProtocolError , StreamClosedError
+# from h2.errors import ErrorCodes
 import logging
 
-
 import Authentication
+
 logging.basicConfig(level=logging.DEBUG)
 connected_clients = []
+
+def server_status():
+    while True:
+        command = input("Enter 'status' to see the server status: ")
+        if command == 'status':
+            print(f"Number of connected clients: {len(connected_clients)}")
     
 def handle_client(client_socket):
     # if not Authentication.authenticate(client_socket):
     #     client_socket.close()
     #     return
+    
+ 
     
     if not os.path.exists("server.crt") or not os.path.exists("server.key"):
         raise FileNotFoundError("SSL certificate or key file not found.")
@@ -36,8 +43,9 @@ def handle_client(client_socket):
     secure_socket.sendall(conn.data_to_send())
     
     # nonce = Authentication.generate_nonce()
-
     connected_clients.append(secure_socket)
+    streams = {}
+
     try:
         # authenticated = False
         while True:
@@ -49,13 +57,12 @@ def handle_client(client_socket):
             for event in events:
                 if isinstance(event, RequestReceived):
                     headers = event.headers
-                    #print recieved headers
-                    print(f"headres: {headers}")
                     headers_dict = {k.decode('utf-8'): v.decode('utf-8') for k, v in headers}
                     path = headers_dict.get(':path', '/')
-                    print(f"path accessed {path}")
+                    # logging.debug(f'Path accessed: {path}')
+                    streams[event.stream_id] = 'open'
                     if path == '/':
-                        # Serve the HTML file
+                        # HTML file
                         with open('auth.html', 'r') as f:
                             html_content = f.read()
 
@@ -66,10 +73,33 @@ def handle_client(client_socket):
                         ]
                         conn.send_headers(event.stream_id, response_headers)
                         conn.send_data(event.stream_id, html_content.encode('utf-8'), end_stream=True)
+                        
+                        if conn.remote_settings.enable_push:
+                            try:
+                                push_stream_id = conn.get_next_available_stream_id()
+                                push_headers = [
+                                    (':method', 'GET'),
+                                    (':authority', 'localhost:8443'),
+                                    (':scheme', 'https'),
+                                    (':path', '/style.css')
+                                ]
+                                conn.push_stream(event.stream_id, push_stream_id, push_headers)
+                                with open('style.css', 'r') as f:
+                                    css_content = f.read()
+                                push_response_headers = [
+                                    (':status', '200'),
+                                    ('content-length', str(len(css_content))),
+                                    ('content-type', 'text/css'),
+                                ]
+                                conn.send_headers(push_stream_id, push_response_headers)
+                                conn.send_data(push_stream_id, css_content.encode('utf-8'), end_stream=True)
+                            except ProtocolError:
+                                logging.info("Server push is disabled by the client.")
+                        
                     elif path == '/authenticate':
                         auth_header = headers_dict.get('authorization', None)
                         if auth_header and ':' not in auth_header:
-                            # This is a nonce request
+                            # it's a nonce request
                             nonce = Authentication.generate_nonce()
                             response_headers = [
                                 (':status', '401'),
@@ -77,9 +107,9 @@ def handle_client(client_socket):
                             ]
                             conn.send_headers(event.stream_id, response_headers, end_stream=True)
                         else:
-                            # This is an authentication request
+                            # authentication request
                             authenticated = Authentication.authenticate(headers_dict, nonce)
-                            logging.debug(f'Authentication result: {authenticated}')
+                            # logging.debug(f'Authentication result: {authenticated}')
                             if not authenticated:
                                 response_headers = [
                                     (':status', '401'),
@@ -88,7 +118,7 @@ def handle_client(client_socket):
                                 conn.send_headers(event.stream_id, response_headers, end_stream=True)
                             else:
                                 # authenticated = True
-                                # Send successful response after authentication
+                                # successful response after authentication
                                 response_headers = [
                                     (':status', '200'),
                                     ('content-length', '13'),
@@ -97,52 +127,37 @@ def handle_client(client_socket):
                                 conn.send_headers(event.stream_id, response_headers)
                                 conn.send_data(event.stream_id, b'Success! :D', end_stream=True)
                         
-                    # else:   
-                    #     response_headers = [
-                    #         (':status', '200'),
-                    #         ('content-length', '13'),
-                    #         ('content-type', 'text/plain'),
-                    #     ]
-                        # conn.send_headers(event.stream_id, response_headers)
-                        # conn.send_data(event.stream_id, b'Hello, world!', end_stream=True)
 
                 elif isinstance(event, DataReceived):
-                    # Process incoming data here
-                    pass
+                    conn.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
                 
                 elif isinstance(event, StreamEnded):
-                    # Stream ended
+                    streams[event.stream_id] = 'half-closed (remote)'
+                    try:
+                        conn.end_stream(event.stream_id)
+                    except StreamClosedError:
+                        logging.info(f"Stream {event.stream_id} already closed.")
+                    
+                elif isinstance(event, WindowUpdated):
+                    # Handle flow control window updates
                     pass
+                elif isinstance(event, SettingsAcknowledged):
+                    # Handle settings acknowledgment
+                    pass
+                elif isinstance(event, StreamReset):
+                    streams[event.stream_id] = 'closed'
+                    logging.info(f'Stream {event.stream_id} reset')
+                elif isinstance(event, PriorityUpdated):
+                    # Handle stream priority updates
+                    logging.info(f'Stream {event.stream_id} priority updated: {event.weight}, {event.depends_on}, {event.exclusive}')
 
+                    
             secure_socket.sendall(conn.data_to_send())
 
-    except ConnectionResetError:
-        print("Client disconnected")
+    # except ConnectionResetError:
+    #     print("Client disconnected")
     finally:
         connected_clients.remove(secure_socket)
         secure_socket.close()
 
     
-    
-    
-    
-    
-    
-    
-    # connected_clients.append(client_socket)
-    # try:
-    #     while True:
-    #         #receive data from the client
-    #         request = client_socket.recv(1024).decode('utf-8')
-    #         if not request:
-    #             break
-    #         print(f"Received: {request}")
-
-    #         #send a response back 
-    #         response = f"Echo: {request} \n"
-    #         client_socket.send(response.encode('utf-8'))
-    # except ConnectionResetError:
-    #     print("Client disconnected")
-    # finally:
-    #     connected_clients.remove(client_socket)
-    #     client_socket.close()
