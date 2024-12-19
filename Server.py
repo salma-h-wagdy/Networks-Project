@@ -44,7 +44,9 @@ def handle_client(client_socket):
     
     # nonce = Authentication.generate_nonce()
     connected_clients.append(secure_socket)
-    streams = {}
+    stream_windows = {}
+    stream_states = {}
+    connection_window = 65535  # Initial connection flow control window size
 
     try:
         # authenticated = False
@@ -55,12 +57,14 @@ def handle_client(client_socket):
 
             events = conn.receive_data(data)
             for event in events:
+                logging.debug(f"Event received: {event}")
                 if isinstance(event, RequestReceived):
                     headers = event.headers
                     headers_dict = {k.decode('utf-8'): v.decode('utf-8') for k, v in headers}
                     path = headers_dict.get(':path', '/')
                     # logging.debug(f'Path accessed: {path}')
-                    streams[event.stream_id] = 'open'
+                    stream_windows[event.stream_id] = 65535  # Initial stream flow control window size
+                    stream_states[event.stream_id] = 'open'
                     if path == '/':
                         # HTML file
                         with open('auth.html', 'r') as f:
@@ -132,20 +136,28 @@ def handle_client(client_socket):
                     conn.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
                 
                 elif isinstance(event, StreamEnded):
-                    streams[event.stream_id] = 'half-closed (remote)'
+                    stream_states[event.stream_id] = 'half-closed (remote)'
                     try:
                         conn.end_stream(event.stream_id)
                     except StreamClosedError:
                         logging.info(f"Stream {event.stream_id} already closed.")
                     
                 elif isinstance(event, WindowUpdated):
-                    # Handle flow control window updates
-                    pass
+                    logging.debug(f"Window updated: stream_id={event.stream_id}, increment={event.delta}")
+                    if event.stream_id == 0:
+                        # Connection-level window update
+                        connection_window += event.delta
+                    else:
+                        # Stream-level window update
+                        if event.stream_id in stream_windows:
+                            stream_windows[event.stream_id] += event.delta
+                        else:
+                            logging.warning(f"Stream {event.stream_id} not found in stream_windows dictionary.")
                 elif isinstance(event, SettingsAcknowledged):
                     # Handle settings acknowledgment
                     pass
                 elif isinstance(event, StreamReset):
-                    streams[event.stream_id] = 'closed'
+                    stream_states[event.stream_id] = 'closed'
                     logging.info(f'Stream {event.stream_id} reset')
                 elif isinstance(event, PriorityUpdated):
                     # Handle stream priority updates
