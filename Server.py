@@ -67,7 +67,7 @@ def handle_client(client_socket):
                     stream_states[event.stream_id] = 'open'
                     if path == '/':
                         # HTML file
-                        with open('auth.html', 'r') as f:
+                        with open('templates/auth.html', 'r') as f:
                             html_content = f.read()
 
                         response_headers = [
@@ -160,7 +160,6 @@ def handle_client(client_socket):
                     stream_states[event.stream_id] = 'closed'
                     logging.info(f'Stream {event.stream_id} reset')
                 elif isinstance(event, PriorityUpdated):
-                    # Handle stream priority updates
                     logging.info(f'Stream {event.stream_id} priority updated: {event.weight}, {event.depends_on}, {event.exclusive}')
 
                     
