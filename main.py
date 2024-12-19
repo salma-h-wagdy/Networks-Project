@@ -7,9 +7,13 @@ def main():
     server.listen(5)
     print("Server listening on port 8443")
 
+    status_thread = threading.Thread(target=Server.server_status)
+    status_thread.daemon = True
+    status_thread.start()
+    
     while True:
         client_socket, addr = server.accept()
-        print(f"Accepted connection from {addr}")
+        print(f"\n Accepted connection from {addr}")
         client_handler = threading.Thread(target=Server.handle_client, args=(client_socket,))
         client_handler.start()
 
