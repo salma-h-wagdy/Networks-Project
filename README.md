@@ -32,8 +32,8 @@ This project aims to deliver a fully functional HTTP/2 server agent that integra
 ## Running the Client
 
 - Running the GET Request
-  After running the client, the user will be prompted to enter the request type (GET or POST or exit).
-    To run the GET request, the user should enter "GET" and then the file name.
+  - After running the client, the user will be prompted to enter the request type (GET or POST or exit).
+  - To run the GET request, the user should enter "GET" and then the file name.
 ```
     GET /filename.html
 ```
@@ -43,8 +43,8 @@ This project aims to deliver a fully functional HTTP/2 server agent that integra
 ```
 
 - Running the POST Request
-  After running the client, the user will be prompted to enter the request type (GET or POST or exit).
-    To run the POST request, the user should enter "POST /submit" and then the required payload to send.
+  - After running the client, the user will be prompted to enter the request type (GET or POST or exit).
+  - To run the POST request, the user should enter "POST /submit" and then the required payload to send.
 - Example
 ```
     POST /submit {"name": "Salma", "age": 22}
