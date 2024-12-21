@@ -17,6 +17,42 @@ This project aims to deliver a fully functional HTTP/2 server agent that integra
     python client.py
 ```
 
+## Main Client Functionalities
+
+- **GET Request**
+  - The client sends a GET request to the server.
+  - The server responds with a 200 OK status code and the requested file.
+  - The client displays the file content.
+
+- **POST Request**
+  - The client sends a POST request to the server.
+  - The server responds with a 200 OK status code and the received data.
+  - The client displays the received data.
+
+## Running the Client
+
+- Running the GET Request
+  - After running the client, the user will be prompted to enter the request type (GET or POST or exit).
+  - To run the GET request, the user should enter "GET" and then the file name.
+```
+    GET /filename.html
+```
+- To display server status
+```
+    GET /status
+```
+
+- Running the POST Request
+  - After running the client, the user will be prompted to enter the request type (GET or POST or exit).
+  - To run the POST request, the user should enter "POST /submit" and then the required payload to send.
+- Example
+```
+    POST /submit {"name": "Salma", "age": 22}
+```
+- To exit the client, the user should enter "exit".
+
+
+
 ## Contribution
 - Salma Yousef
 - Menna Ayman
