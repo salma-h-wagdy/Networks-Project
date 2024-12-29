@@ -12,11 +12,35 @@ import h2.settings
 # from h2.errors import ErrorCodes , refused_stream_error , REFUSED_STREAM
 import h2.errors
 import logging
-
+import Cache
 import Authentication
+import hpack
+
 
 logging.basicConfig(level=logging.DEBUG)
 connected_clients = []
+
+
+def encode_headers(headers):
+    encoder = hpack.Encoder()
+    encoded_headers = encoder.encode(headers)
+    original_size = sum(len(k) + len(v) for k, v in headers)
+    encoded_size = len(encoded_headers)
+    logging.info("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY")
+    logging.info(f"Original header:{headers} -> {encoded_headers}")
+    logging.info(f"Original headers size: {original_size} bytes")
+    logging.info(f"Encoded headers size: {encoded_size} bytes")
+    return encoded_headers
+
+def decode_headers(encoded_headers):
+    decoder = hpack.Decoder()
+    decoded_headers = decoder.decode(encoded_headers)
+    # logging.debug(f"Decoded headers: {encoded_headers} -> {decoded_headers}")
+    # decoded_size = sum(len(k) + len(v) for k, v in decoded_headers)
+    # logging.info(f"Encoded headers size: {len(encoded_headers)} bytes")
+    # logging.info(f"Decoded headers size: {decoded_size} bytes")
+    return decoded_headers
+
 
 def server_status():
     while True:
