@@ -117,7 +117,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows):
                 (':path', '/style.css')
             ]
             conn.push_stream(event.stream_id, push_stream_id, push_headers)
-            with open('style.css', 'r') as f:
+            with open('templates/style.css', 'r') as f:
                 css_content = f.read()
             push_response_headers = [
                 (':status', '200'),
