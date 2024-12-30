@@ -3,13 +3,33 @@
 
 import logging
 import Authentication
+# from Server import encode_headers
+import Server
 from utils import send_continuation_frame, send_data_with_flow_control
 from Cache import CacheManager, generate_etag, get_last_modified_time
 from h2.exceptions import ProtocolError 
-
+import hpack
 
 logging.basicConfig(level=logging.DEBUG)
 nonce = None
+def encode_headers(headers):
+    encoder = hpack.Encoder()
+    encoded_headers = encoder.encode(headers)
+    original_size = sum(len(k) + len(v) for k, v in headers)
+    encoded_size = len(encoded_headers)
+    logging.info("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY")
+    logging.info(f"Original header:{headers} -> {encoded_headers}")
+    logging.info(f"Original headers size: {original_size} bytes")
+    logging.info(f"Encoded headers size: {encoded_size} bytes")
+    return encoded_headers
+def decode_headers(encoded_headers):
+    decoder = hpack.Decoder()
+    decoded_headers = decoder.decode(encoded_headers)
+    logging.debug(f"Decoded headers: {encoded_headers} -> {decoded_headers}")
+    decoded_size = sum(len(k) + len(v) for k, v in decoded_headers)
+    logging.info(f"Encoded headers size: {len(encoded_headers)} bytes")
+    logging.info(f"Decoded headers size: {decoded_size} bytes")
+    return decoded_headers
 
 def handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager):
     global nonce
@@ -32,6 +52,7 @@ def handle_request(event, conn, connection_window, stream_windows, stream_states
                     ('etag', generate_etag(cached_content)),
                     ('last-modified', get_last_modified_time(path)),
                 ]
+                encoded_headers = encode_headers(response_headers)
                 conn.send_headers(event.stream_id, response_headers)
                 connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, cached_content, connection_window, stream_windows)
             else:
