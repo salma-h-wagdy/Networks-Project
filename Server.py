@@ -152,8 +152,8 @@ def handle_client(client_socket):
             for event in events:
                 logging.debug(f"Event received: {event}")
 
+                post_data_storage = []
                 if isinstance(event, RequestReceived):
-                    #post_data_storage = event.headers
 
                     headers = event.headers
                     headers_dict = dict(headers)
@@ -278,61 +278,70 @@ def handle_client(client_socket):
                             ('allow', 'GET, POST, PUT, DELETE, PATCH'),
                             ('content-length', '12'),
                             ('content-type', 'text/plain'),
+                            ('Access-Control-Allow-Origin', '*'),
+                            ('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH'),
                         ]
                         conn.send_headers(event.stream_id, response_headers)
                         conn.send_data(event.stream_id, b'OPTIONS received', end_stream=True)
-        
-                    elif method == 'POST':
-                        # Initialize storage for accumulating POST data for this stream
-                        if event.stream_id not in partial_headers:
-                            partial_headers[event.stream_id] = b''  # Initialize for new stream
-                        logging.debug(f"POST request received with stream_id: {event.stream_id}")
 
-                    elif method == 'PUT':
-                        # Initialize storage for accumulating PUT data for this stream
-                        if event.stream_id not in partial_headers:
-                            partial_headers[event.stream_id] = b''  # Initialize for new stream
-                        logging.debug(f"PUT request received with stream_id: {event.stream_id}")
-    
+                    elif method in ['POST', 'PUT']:
+                        # Initialize storage for accumulating POST/PUT data for this stream
+                        if event.stream_id not in post_data_storage:
+                            post_data_storage[event.stream_id] = b''  # Initialize for new stream
+                        logging.debug(f"{method} request received with stream_id: {event.stream_id}")
 
                 elif isinstance(event, DataReceived):
                     logging.debug(f"Data received for stream {event.stream_id}: {event.data}")
-                    if event.stream_id in partial_headers:
-                        partial_headers[event.stream_id] += event.data  # Accumulate data from frames
 
-                        # If the stream has ended, process the POST data
+                    if event.stream_id in post_data_storage:
+                        # Accumulate data for the current stream
+                        post_data_storage[event.stream_id] += event.data
+
+                        # If the stream has ended, process the POST/PUT data
                         if event.stream_ended:
-                            post_data = partial_headers.pop(event.stream_id)
-                            logging.info(f"POST data received: {post_data.decode('utf-8')}")
-                            # Send response headers and data
+                            data = post_data_storage.pop(event.stream_id)
+                            method = 'POST' if 'POST' in post_data_storage else 'PUT'
+                            logging.info(f"{method} data received: {data.decode('utf-8')}")
+
+                            # Process the data (e.g., store, update resources)
                             response_headers = [
                                 (':status', '200'),
                                 ('content-length', '11'),
                                 ('content-type', 'text/plain'),
                             ]
                             conn.send_headers(event.stream_id, response_headers)
-                            conn.send_data(event.stream_id, b'POST received', end_stream=True)
-                            
+                            conn.send_data(event.stream_id, f"{method} received".encode('utf-8'), end_stream=True)
+
+                    elif method == 'DELETE':
+                        if event.stream_id not in post_data_storage:
+                            post_data_storage[event.stream_id] = b''  # Initialize for new stream
+                        logging.debug(f"DELETE request received with stream_id: {event.stream_id}")
 
                 elif isinstance(event, DataReceived):
                     logging.debug(f"Data received for stream {event.stream_id}: {event.data}")
-                    if event.stream_id in partial_headers:
-                        partial_headers[event.stream_id] += event.data  # Accumulate data from frames
 
-                        # If the stream has ended, process the PUT data
+                    if event.stream_id in post_data_storage:
+                        # Accumulate data for the DELETE request if any (usually none)
+                        post_data_storage[event.stream_id] += event.data
+
                         if event.stream_ended:
-                            put_data = partial_headers.pop(event.stream_id)
-                            logging.info(f"PUT data received: {put_data.decode('utf-8')}")
-                            
-                            # Process the PUT data (e.g., update or replace a resource)
+                            delete_data = post_data_storage.pop(event.stream_id, b'')
+                            resource_id = None
+                            if delete_data:
+                                try:
+                                    params = dict(item.split("=") for item in delete_data.decode('utf-8').split("&"))
+                                    resource_id = params.get('resource_id')
+                                except Exception as e:
+                                    logging.error(f"Error parsing DELETE data: {e}")
+
+                            response_message = f"Resource {resource_id} deleted" if resource_id else "DELETE received"
                             response_headers = [
                                 (':status', '200'),
-                                ('content-length', '11'),
+                                ('content-length', str(len(response_message))),
                                 ('content-type', 'text/plain'),
                             ]
                             conn.send_headers(event.stream_id, response_headers)
-                            conn.send_data(event.stream_id, b'PUT received', end_stream=True)
-
+                            conn.send_data(event.stream_id, response_message.encode('utf-8'), end_stream=True)
 
 
                 # Flow Control 

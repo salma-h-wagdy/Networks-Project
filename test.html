@@ -3,18 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POST Test</title>
+    <title>HTTP Method Testing</title>
 </head>
 <body>
-    <h1>Test POST Request</h1>
+    <h1>Test HTTP Methods</h1>
+
+    <!-- Form to test POST request -->
+    <h2>Test POST Request</h2>
     <form action="https://localhost:8443/your-path" method="POST">
-        <label for="key1">Key 1:</label>
-        <input type="text" id="key1" name="key1" value="value1"><br><br>
+        <label for="post-key1">Key 1:</label>
+        <input type="text" id="post-key1" name="key1" value="value1"><br><br>
         
-        <label for="key2">Key 2:</label>
-        <input type="text" id="key2" name="key2" value="value2"><br><br>
+        <label for="post-key2">Key 2:</label>
+        <input type="text" id="post-key2" name="key2" value="value2"><br><br>
 
         <button type="submit">Submit POST</button>
     </form>
+
+    <!-- Form to test PUT request -->
+    <h2>Test PUT Request</h2>
+    <form id="put-form">
+        <label for="put-key1">Key 1:</label>
+        <input type="text" id="put-key1" name="key1" value="value1"><br><br>
+        
+        <label for="put-key2">Key 2:</label>
+        <input type="text" id="put-key2" name="key2" value="value2"><br><br>
+
+        <button type="button" id="put-submit">Submit PUT</button>
+    </form>
+
+    <!-- Button to test OPTIONS request -->
+    <h2>Test OPTIONS Request</h2>
+    <button type="button" id="options-submit">Send OPTIONS</button>
+
+    <script>
+        // Function to test PUT request
+        document.getElementById('put-submit').addEventListener('click', async () => {
+            const url = 'https://localhost:8443/your-path';
+            const data = {
+                key1: document.getElementById('put-key1').value,
+                key2: document.getElementById('put-key2').value,
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+                const result = await response.text();
+                alert(`PUT Response: ${result}`);
+            } catch (error) {
+                console.error('Error during PUT request:', error);
+                alert('PUT request failed. Check console for details.');
+            }
+        });
+
+        // Function to test OPTIONS request
+        document.getElementById('options-submit').addEventListener('click', async () => {
+            const url = 'https://localhost:8443/your-path';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'OPTIONS',
+                });
+                const result = await response.text();
+                alert(`OPTIONS Response: ${result}`);
+            } catch (error) {
+                console.error('Error during OPTIONS request:', error);
+                alert('OPTIONS request failed. Check console for details.');
+            }
+        });
+    </script>
 </body>
 </html>
