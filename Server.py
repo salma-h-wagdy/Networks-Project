@@ -88,6 +88,10 @@ def send_settings_frame(conn, settings):
     conn.update_settings(settings)
     logging.info(f"Sent SETTINGS frame: {settings}")
     
+def handle_invalid_frame_in_stream_state(conn, stream_id, frame_type):
+    logging.error(f"Invalid frame {frame_type} received in current stream state for stream {stream_id}")
+    send_rst_stream_frame(conn, stream_id, h2.errors.PROTOCOL_ERROR)
+    
 def handle_client(client_socket):
     
     if not os.path.exists("server.crt") or not os.path.exists("server.key"):
@@ -149,11 +153,12 @@ def handle_client(client_socket):
                            
                 # Flow Control 
                 elif isinstance(event, DataReceived):
-                    conn.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
-                    
-                    # Send WINDOW_UPDATE if needed
-                    if event.flow_controlled_length > 0:
-                        send_window_update(conn, event.stream_id, event.flow_controlled_length)
+                    if stream_states.get(event.stream_id) in ['half-closed (local)', 'closed']:
+                        handle_invalid_frame_in_stream_state(conn, event.stream_id, 'DATA')
+                    else:
+                        conn.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
+                        if event.flow_controlled_length > 0:
+                            send_window_update(conn, event.stream_id, event.flow_controlled_length)
                 
                 # Stream States
                 elif isinstance(event, StreamEnded):
@@ -168,94 +173,7 @@ def handle_client(client_socket):
                         complete_headers = partial_headers.pop(event.stream_id)
                         headers_dict =  dict(complete_headers)
                         path = headers_dict.get(':path', '/')
-                        # Process the request path as usual
-                        if path == '/':
-                            with open('templates/auth.html', 'r') as f:
-                                html_content = f.read()
-
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', str(len(html_content))),
-                                ('content-type', 'text/html'),
-                            ]
-
-                            # Check if headers exceed the maximum frame size
-                            headers_size = sum(len(k) + len(v) for k, v in response_headers)
-                            if headers_size > conn.max_outbound_frame_size:
-                                # Send initial HEADERS frame
-                                conn.send_headers(event.stream_id, response_headers[:1])
-                                # Send CONTINUATION frames for the remaining headers
-                                send_continuation_frame(conn, event.stream_id, response_headers[1:], 0)
-                            else:
-                                conn.send_headers(event.stream_id, response_headers)
-
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, html_content.encode('utf-8'), connection_window, stream_windows)
-
-                            if conn.remote_settings.enable_push:
-                                try:
-                                    push_stream_id = conn.get_next_available_stream_id()
-                                    push_headers = [
-                                        (':method', 'GET'),
-                                        (':authority', 'localhost:8443'),
-                                        (':scheme', 'https'),
-                                        (':path', '/style.css')
-                                    ]
-                                    conn.push_stream(event.stream_id, push_stream_id, push_headers)
-                                    with open('style.css', 'r') as f:
-                                        css_content = f.read()
-                                    push_response_headers = [
-                                        (':status', '200'),
-                                        ('content-length', str(len(css_content))),
-                                        ('content-type', 'text/css'),
-                                    ]
-                                    conn.send_headers(push_stream_id, push_response_headers)
-                                    connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
-                                except ProtocolError:
-                                    logging.info("Server push is disabled by the client.")
-
-                        elif path == '/high-priority':
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', '13'),
-                                ('content-type', 'text/plain'),
-                            ]
-                            conn.send_headers(event.stream_id, response_headers)
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
-                        elif path == '/low-priority':
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', '12'),
-                                ('content-type', 'text/plain'),
-                            ]
-                            conn.send_headers(event.stream_id, response_headers)
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
-
-                        elif path == '/authenticate':
-                            auth_header = headers_dict.get('authorization', None)
-                            if auth_header and ':' not in auth_header:
-                                nonce = Authentication.generate_nonce()
-                                response_headers = [
-                                    (':status', '401'),
-                                    ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
-                                ]
-                                conn.send_headers(event.stream_id, response_headers, end_stream=True)
-                            else:
-                                print ( f"nonce is {nonce}")
-                                authenticated = Authentication.authenticate(headers_dict, nonce)
-                                if not authenticated:
-                                    response_headers = [
-                                        (':status', '401'),
-                                        ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
-                                    ]
-                                    conn.send_headers(event.stream_id, response_headers, end_stream=True)
-                                else:
-                                    response_headers = [
-                                        (':status', '200'),
-                                        ('content-length', '13'),
-                                        ('content-type', 'text/plain'),
-                                    ]
-                                    conn.send_headers(event.stream_id, response_headers)
-                                    connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Success! :D', connection_window, stream_windows)
+                        handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager)
                     else:
                         logging.warning(f"Stream {event.stream_id} ended without receiving headers.")
                     
@@ -291,8 +209,7 @@ def handle_client(client_socket):
                         'depends_on': event.depends_on,
                         'exclusive': event.exclusive
                     }
-                    
-                    # send_priority_frame(conn, event.stream_id, event.weight, event.depends_on, event.exclusive)
+
 
                 elif isinstance(event, RemoteSettingsChanged):
                     logging.info(f"Remote settings changed: {event.changed_settings}")
@@ -314,10 +231,5 @@ def handle_client(client_socket):
         except Exception as e:
             logging.error(f"Exception while closing client_socket: {e}")
 
-    # except ConnectionResetError:
-    #     print("Client disconnected")
-    # finally:
-    #     connected_clients.remove(secure_socket)
-    #     secure_socket.close()
 
     
