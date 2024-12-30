@@ -91,6 +91,9 @@ def send_rst_stream_frame(conn, stream_id, error_code):
 def send_settings_frame(conn, settings):
     conn.update_settings(settings)
     logging.info(f"Sent SETTINGS frame: {settings}")
+
+
+
     
 def handle_client(client_socket):
     
@@ -148,116 +151,190 @@ def handle_client(client_socket):
             events = conn.receive_data(data)
             for event in events:
                 logging.debug(f"Event received: {event}")
-                if isinstance(event, RequestReceived):
-                    headers = event.headers
-                    if event.stream_ended:
-                        headers_dict = dict(headers)
-                        path = headers_dict.get(':path', '/')
-                        # logging.debug(f'Path accessed: {path}')
-                        stream_windows[event.stream_id] = 65535  # Initial stream flow control window size
-                        stream_states[event.stream_id] = 'open' # set initial state of the stream to 'open'
-                        last_stream_id = event.stream_id
-                        
-                        
-                        # auth html file (main page)
-                        if path == '/':
-                            with open('templates/auth.html', 'r') as f:
-                                html_content = f.read()
 
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', str(len(html_content))),
-                                ('content-type', 'text/html'),
-                            ]
+                if isinstance(event, RequestReceived):
+                    #post_data_storage = event.headers
+
+                    headers = event.headers
+                    headers_dict = dict(headers)
+                    
+                    method = headers_dict.get(':method', 'GET')  # Default to 'GET' if not specified
+
+                    if method == 'GET':
+                        if event.stream_ended:
+                            path = headers_dict.get(':path', '/')
+                            # logging.debug(f'Path accessed: {path}')
+                            stream_windows[event.stream_id] = 65535  # Initial stream flow control window size
+                            stream_states[event.stream_id] = 'open' # set initial state of the stream to 'open'
+                            last_stream_id = event.stream_id
                             
                             
-                            # Check if headers exceed the maximum frame size
-                            headers_size = sum(len(k) + len(v) for k, v in response_headers)
-                            if headers_size > conn.max_outbound_frame_size:
-                                # Send initial HEADERS frame
-                                conn.send_headers(event.stream_id, response_headers[:1])
-                                # Send CONTINUATION frames for the remaining headers
-                                send_continuation_frame(conn, event.stream_id, response_headers[1:], 0)
-                            else:
-                                conn.send_headers(event.stream_id, response_headers)
-                                
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, html_content.encode('utf-8'), connection_window, stream_windows)
-                            
-                            #server push
-                            if conn.remote_settings.enable_push:
-                                try:
-                                    push_stream_id = conn.get_next_available_stream_id()
-                                    push_headers = [
-                                        (':method', 'GET'),
-                                        (':authority', 'localhost:8443'),
-                                        (':scheme', 'https'),
-                                        (':path', '/style.css')
-                                    ]
-                                    conn.push_stream(event.stream_id, push_stream_id, push_headers)
-                                    with open('style.css', 'r') as f:
-                                        css_content = f.read()
-                                    push_response_headers = [
-                                        (':status', '200'),
-                                        ('content-length', str(len(css_content))),
-                                        ('content-type', 'text/css'),
-                                    ]
-                                    conn.send_headers(push_stream_id, push_response_headers)
-                                    connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
-                                except ProtocolError:
-                                    logging.info("Server push is disabled by the client.")
-                                    
-                        elif path == '/high-priority':
-                            # Handle high-priority request
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', '13'),
-                                ('content-type', 'text/plain'),
-                            ]
-                            conn.send_headers(event.stream_id, response_headers)
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
-                        elif path == '/low-priority':
-                            # Handle low-priority request
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', '12'),
-                                ('content-type', 'text/plain'),
-                            ]
-                            conn.send_headers(event.stream_id, response_headers)
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
-                        
-                        #authentication
-                        elif path == '/authenticate':
-                            auth_header = headers_dict.get('authorization', None)
-                            if auth_header and ':' not in auth_header:
-                                # it's a nonce request
-                                nonce = Authentication.generate_nonce()
+                            # auth html file (main page)
+                            if path == '/':
+                                with open('templates/auth.html', 'r') as f:
+                                    html_content = f.read()
+
                                 response_headers = [
-                                    (':status', '401'),
-                                    ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
+                                    (':status', '200'),
+                                    ('content-length', str(len(html_content))),
+                                    ('content-type', 'text/html'),
                                 ]
-                                conn.send_headers(event.stream_id, response_headers, end_stream=True)
-                            else:
-                                # authentication request
-                                authenticated = Authentication.authenticate(headers_dict, nonce)
-                                # logging.debug(f'Authentication result: {authenticated}')
-                                if not authenticated:
+                                
+                                
+                                # Check if headers exceed the maximum frame size
+                                headers_size = sum(len(k) + len(v) for k, v in response_headers)
+                                if headers_size > conn.max_outbound_frame_size:
+                                    # Send initial HEADERS frame
+                                    conn.send_headers(event.stream_id, response_headers[:1])
+                                    # Send CONTINUATION frames for the remaining headers
+                                    send_continuation_frame(conn, event.stream_id, response_headers[1:], 0)
+                                else:
+                                    conn.send_headers(event.stream_id, response_headers)
+                                    
+                                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, html_content.encode('utf-8'), connection_window, stream_windows)
+                                
+                                #server push
+                                if conn.remote_settings.enable_push:
+                                    try:
+                                        push_stream_id = conn.get_next_available_stream_id()
+                                        push_headers = [
+                                            (':method', 'GET'),
+                                            (':authority', 'localhost:8443'),
+                                            (':scheme', 'https'),
+                                            (':path', '/style.css')
+                                        ]
+                                        conn.push_stream(event.stream_id, push_stream_id, push_headers)
+                                        with open('style.css', 'r') as f:
+                                            css_content = f.read()
+                                        push_response_headers = [
+                                            (':status', '200'),
+                                            ('content-length', str(len(css_content))),
+                                            ('content-type', 'text/css'),
+                                        ]
+                                        conn.send_headers(push_stream_id, push_response_headers)
+                                        connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
+                                    except ProtocolError:
+                                        logging.info("Server push is disabled by the client.")
+                                        
+                            elif path == '/high-priority':
+                                # Handle high-priority request
+                                response_headers = [
+                                    (':status', '200'),
+                                    ('content-length', '13'),
+                                    ('content-type', 'text/plain'),
+                                ]
+                                conn.send_headers(event.stream_id, response_headers)
+                                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
+                            elif path == '/low-priority':
+                                # Handle low-priority request
+                                response_headers = [
+                                    (':status', '200'),
+                                    ('content-length', '12'),
+                                    ('content-type', 'text/plain'),
+                                ]
+                                conn.send_headers(event.stream_id, response_headers)
+                                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
+                            
+                            #authentication
+                            elif path == '/authenticate':
+                                auth_header = headers_dict.get('authorization', None)
+                                if auth_header and ':' not in auth_header:
+                                    # it's a nonce request
+                                    nonce = Authentication.generate_nonce()
                                     response_headers = [
                                         (':status', '401'),
                                         ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
                                     ]
                                     conn.send_headers(event.stream_id, response_headers, end_stream=True)
                                 else:
-                                    # successful response after authentication
-                                    response_headers = [
-                                        (':status', '200'),
-                                        ('content-length', '13'),
-                                        ('content-type', 'text/plain'),
-                                    ]
-                                    conn.send_headers(event.stream_id, response_headers)
-                                    connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Success! :D', connection_window, stream_windows)
-                    else:
-                        partial_headers[event.stream_id] = headers
-                        
+                                    # authentication request
+                                    authenticated = Authentication.authenticate(headers_dict, nonce)
+                                    # logging.debug(f'Authentication result: {authenticated}')
+                                    if not authenticated:
+                                        response_headers = [
+                                            (':status', '401'),
+                                            ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
+                                        ]
+                                        conn.send_headers(event.stream_id, response_headers, end_stream=True)
+                                    else:
+                                        # successful response after authentication
+                                        response_headers = [
+                                            (':status', '200'),
+                                            ('content-length', '13'),
+                                            ('content-type', 'text/plain'),
+                                        ]
+                                        conn.send_headers(event.stream_id, response_headers)
+                                        connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Success! :D', connection_window, stream_windows)
+                        else:
+                            partial_headers[event.stream_id] = headers
+
+                    elif method == 'OPTIONS':
+                        # OPTIONS requests are typically used for describing the allowed methods, CORS, etc.
+                        logging.debug(f"OPTIONS request received with stream_id: {event.stream_id}")
+
+                        # Send response indicating which methods are allowed
+                        response_headers = [
+                            (':status', '200'),
+                            ('allow', 'GET, POST, PUT, DELETE, PATCH'),
+                            ('content-length', '12'),
+                            ('content-type', 'text/plain'),
+                        ]
+                        conn.send_headers(event.stream_id, response_headers)
+                        conn.send_data(event.stream_id, b'OPTIONS received', end_stream=True)
+        
+                    elif method == 'POST':
+                        # Initialize storage for accumulating POST data for this stream
+                        if event.stream_id not in partial_headers:
+                            partial_headers[event.stream_id] = b''  # Initialize for new stream
+                        logging.debug(f"POST request received with stream_id: {event.stream_id}")
+
+                    elif method == 'PUT':
+                        # Initialize storage for accumulating PUT data for this stream
+                        if event.stream_id not in partial_headers:
+                            partial_headers[event.stream_id] = b''  # Initialize for new stream
+                        logging.debug(f"PUT request received with stream_id: {event.stream_id}")
+    
+
+                elif isinstance(event, DataReceived):
+                    logging.debug(f"Data received for stream {event.stream_id}: {event.data}")
+                    if event.stream_id in partial_headers:
+                        partial_headers[event.stream_id] += event.data  # Accumulate data from frames
+
+                        # If the stream has ended, process the POST data
+                        if event.stream_ended:
+                            post_data = partial_headers.pop(event.stream_id)
+                            logging.info(f"POST data received: {post_data.decode('utf-8')}")
+                            # Send response headers and data
+                            response_headers = [
+                                (':status', '200'),
+                                ('content-length', '11'),
+                                ('content-type', 'text/plain'),
+                            ]
+                            conn.send_headers(event.stream_id, response_headers)
+                            conn.send_data(event.stream_id, b'POST received', end_stream=True)
+                            
+
+                elif isinstance(event, DataReceived):
+                    logging.debug(f"Data received for stream {event.stream_id}: {event.data}")
+                    if event.stream_id in partial_headers:
+                        partial_headers[event.stream_id] += event.data  # Accumulate data from frames
+
+                        # If the stream has ended, process the PUT data
+                        if event.stream_ended:
+                            put_data = partial_headers.pop(event.stream_id)
+                            logging.info(f"PUT data received: {put_data.decode('utf-8')}")
+                            
+                            # Process the PUT data (e.g., update or replace a resource)
+                            response_headers = [
+                                (':status', '200'),
+                                ('content-length', '11'),
+                                ('content-type', 'text/plain'),
+                            ]
+                            conn.send_headers(event.stream_id, response_headers)
+                            conn.send_data(event.stream_id, b'PUT received', end_stream=True)
+
+
+
                 # Flow Control 
                 elif isinstance(event, DataReceived):
                     conn.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
@@ -413,7 +490,6 @@ def handle_client(client_socket):
     finally:
         
         send_goaway_frame(conn, last_stream_id)
-
         connected_clients.remove(client_socket)
         try:
             secure_socket.close()
@@ -429,5 +505,3 @@ def handle_client(client_socket):
     # finally:
     #     connected_clients.remove(secure_socket)
     #     secure_socket.close()
-
-    
