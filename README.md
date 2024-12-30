@@ -2,19 +2,21 @@
 ## Overview
 This project aims to deliver a fully functional HTTP/2 server agent that integrates seamlessly with existing web technologies. The server agent will strictly adhere to specified behaviors, scenarios, message formats, and sequences, ensuring robust performance and appropriate error handling.
 
-## Prerequirements
-The `h2` Python library is needed.
+The following Python libraries are needed:
+- `h2`
+- `hpack`
 
+Install the required libraries using pip:
 ```sh
-python -m pip install h2
-```
+python -m pip install h2 hpack
 
 ## How to Run
 
 ### Running the Server
 
 1. Open a terminal and navigate to the directory containing `main.py`.
-2. Execute the following command to start the server:
+2. Ensure you have the SSL certificate and key files \(server.crt and server.key\) in the same directory.
+3. Execute the following command to start the server:
 ```sh
     python main.py
 ```
@@ -47,6 +49,20 @@ Low Priority Requests
 
 ```
 curl -v --http2 --insecure https://localhost:8443/low-priority --output low.html
+```
+
+## Testing Authentication
+You can test authentication using curl:
+
+```
+curl -v --http2 --insecure -u username:password https://localhost:8443/authenticate
+```
+
+## Testing Methods 
+After starting the server , open a terminal and navigate to the directory containing `test methods.py`.
+2. Execute the following command to start the tests:
+```sh
+    python test methods.py
 ```
 
 ## Debugging and Logs
