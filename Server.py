@@ -12,14 +12,15 @@ import h2.settings
 # from h2.errors import ErrorCodes , refused_stream_error , REFUSED_STREAM
 import h2.errors
 import logging
-import Cache
+from Cache import CacheManager, generate_etag, get_last_modified_time
 import Authentication
 import hpack
 
 
 logging.basicConfig(level=logging.DEBUG)
 connected_clients = []
-
+# Initialize CacheManager
+cache_manager = CacheManager()
 
 def encode_headers(headers):
     encoder = hpack.Encoder()
@@ -182,103 +183,115 @@ def handle_client(client_socket):
                         stream_states[event.stream_id] = 'open' # set initial state of the stream to 'open'
                         last_stream_id = event.stream_id
                         
-                        
-                        # auth html file (main page)
-                        if path == '/':
-                            with open('templates/auth.html', 'r') as f:
-                                html_content = f.read()
-
+                        # Check if the path is cached
+                        if cache_manager.is_cached(path):
+                            cached_content = cache_manager.load_from_cache(path)
                             response_headers = [
                                 (':status', '200'),
-                                ('content-length', str(len(html_content))),
+                                ('content-length', str(len(cached_content))),
                                 ('content-type', 'text/html'),
-                            ]
-                            
-                            
-                            # Check if headers exceed the maximum frame size
-                            headers_size = sum(len(k) + len(v) for k, v in response_headers)
-                            if headers_size > conn.max_outbound_frame_size:
-                                # Send initial HEADERS frame
-                                conn.send_headers(event.stream_id, response_headers[:1])
-                                # Send CONTINUATION frames for the remaining headers
-                                send_continuation_frame(conn, event.stream_id, response_headers[1:], 0)
-                            else:
-                                conn.send_headers(event.stream_id, response_headers)
-                                
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, html_content.encode('utf-8'), connection_window, stream_windows)
-                            
-                            #server push
-                            if conn.remote_settings.enable_push:
-                                try:
-                                    push_stream_id = conn.get_next_available_stream_id()
-                                    push_headers = [
-                                        (':method', 'GET'),
-                                        (':authority', 'localhost:8443'),
-                                        (':scheme', 'https'),
-                                        (':path', '/style.css')
-                                    ]
-                                    conn.push_stream(event.stream_id, push_stream_id, push_headers)
-                                    with open('style.css', 'r') as f:
-                                        css_content = f.read()
-                                    push_response_headers = [
-                                        (':status', '200'),
-                                        ('content-length', str(len(css_content))),
-                                        ('content-type', 'text/css'),
-                                    ]
-                                    conn.send_headers(push_stream_id, push_response_headers)
-                                    connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
-                                except ProtocolError:
-                                    logging.info("Server push is disabled by the client.")
-                                    
-                        elif path == '/high-priority':
-                            # Handle high-priority request
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', '13'),
-                                ('content-type', 'text/plain'),
+                                ('etag', generate_etag(cached_content)),
+                                ('last-modified', get_last_modified_time(path)),
                             ]
                             conn.send_headers(event.stream_id, response_headers)
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
-                        elif path == '/low-priority':
-                            # Handle low-priority request
-                            response_headers = [
-                                (':status', '200'),
-                                ('content-length', '12'),
-                                ('content-type', 'text/plain'),
-                            ]
-                            conn.send_headers(event.stream_id, response_headers)
-                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
-                        
-                        #authentication
-                        elif path == '/authenticate':
-                            auth_header = headers_dict.get('authorization', None)
-                            if auth_header and ':' not in auth_header:
-                                # it's a nonce request
-                                nonce = Authentication.generate_nonce()
+                            connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, cached_content, connection_window, stream_windows)
+                        else:
+                            # auth html file (main page)
+                            if path == '/':
+                                with open('templates/auth.html', 'r') as f:
+                                    html_content = f.read()
+
                                 response_headers = [
-                                    (':status', '401'),
-                                    ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
+                                    (':status', '200'),
+                                    ('content-length', str(len(html_content))),
+                                    ('content-type', 'text/html'),
                                 ]
-                                conn.send_headers(event.stream_id, response_headers, end_stream=True)
-                            else:
-                                # authentication request
-                                authenticated = Authentication.authenticate(headers_dict, nonce)
-                                # logging.debug(f'Authentication result: {authenticated}')
-                                if not authenticated:
+                                
+                                
+                                # Check if headers exceed the maximum frame size
+                                headers_size = sum(len(k) + len(v) for k, v in response_headers)
+                                if headers_size > conn.max_outbound_frame_size:
+                                    # Send initial HEADERS frame
+                                    conn.send_headers(event.stream_id, response_headers[:1])
+                                    # Send CONTINUATION frames for the remaining headers
+                                    send_continuation_frame(conn, event.stream_id, response_headers[1:], 0)
+                                else:
+                                    conn.send_headers(event.stream_id, response_headers)
+                                    
+                                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, html_content.encode('utf-8'), connection_window, stream_windows)
+                                cache_manager.save_to_cache(path, html_content.encode('utf-8'))
+                                #server push
+                                if conn.remote_settings.enable_push:
+                                    try:
+                                        push_stream_id = conn.get_next_available_stream_id()
+                                        push_headers = [
+                                            (':method', 'GET'),
+                                            (':authority', 'localhost:8443'),
+                                            (':scheme', 'https'),
+                                            (':path', '/style.css')
+                                        ]
+                                        conn.push_stream(event.stream_id, push_stream_id, push_headers)
+                                        with open('style.css', 'r') as f:
+                                            css_content = f.read()
+                                        push_response_headers = [
+                                            (':status', '200'),
+                                            ('content-length', str(len(css_content))),
+                                            ('content-type', 'text/css'),
+                                        ]
+                                        conn.send_headers(push_stream_id, push_response_headers)
+                                        connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
+                                    except ProtocolError:
+                                        logging.info("Server push is disabled by the client.")
+                                        
+                            elif path == '/high-priority':
+                                # Handle high-priority request
+                                response_headers = [
+                                    (':status', '200'),
+                                    ('content-length', '13'),
+                                    ('content-type', 'text/plain'),
+                                ]
+                                conn.send_headers(event.stream_id, response_headers)
+                                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
+                            elif path == '/low-priority':
+                                # Handle low-priority request
+                                response_headers = [
+                                    (':status', '200'),
+                                    ('content-length', '12'),
+                                    ('content-type', 'text/plain'),
+                                ]
+                                conn.send_headers(event.stream_id, response_headers)
+                                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
+                            
+                            #authentication
+                            elif path == '/authenticate':
+                                auth_header = headers_dict.get('authorization', None)
+                                if auth_header and ':' not in auth_header:
+                                    # it's a nonce request
+                                    nonce = Authentication.generate_nonce()
                                     response_headers = [
                                         (':status', '401'),
                                         ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
                                     ]
                                     conn.send_headers(event.stream_id, response_headers, end_stream=True)
                                 else:
-                                    # successful response after authentication
-                                    response_headers = [
-                                        (':status', '200'),
-                                        ('content-length', '13'),
-                                        ('content-type', 'text/plain'),
-                                    ]
-                                    conn.send_headers(event.stream_id, response_headers)
-                                    connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Success! :D', connection_window, stream_windows)
+                                    # authentication request
+                                    authenticated = Authentication.authenticate(headers_dict, nonce)
+                                    # logging.debug(f'Authentication result: {authenticated}')
+                                    if not authenticated:
+                                        response_headers = [
+                                            (':status', '401'),
+                                            ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
+                                        ]
+                                        conn.send_headers(event.stream_id, response_headers, end_stream=True)
+                                    else:
+                                        # successful response after authentication
+                                        response_headers = [
+                                            (':status', '200'),
+                                            ('content-length', '13'),
+                                            ('content-type', 'text/plain'),
+                                        ]
+                                        conn.send_headers(event.stream_id, response_headers)
+                                        connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Success! :D', connection_window, stream_windows)
                     else:
                         partial_headers[event.stream_id] = headers
                         
