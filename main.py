@@ -1,7 +1,8 @@
 import socket
 import threading
-import tkinter as tk
-from tkinter import scrolledtext
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from ttkbootstrap.scrolled import ScrolledText
 import Server
 
 
@@ -9,31 +10,42 @@ class ServerGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("HTTP/2 Server GUI")
+        self.root.geometry("700x400")
 
-        # Server status
-        self.status_label = tk.Label(root, text="Server Status: Stopped", fg="red")
-        self.status_label.pack(pady=5)
+        # Frame for Status and Control
+        self.frame_top = ttk.Frame(root, padding=10)
+        self.frame_top.pack(fill=X, pady=10)
 
-        # Log output
-        self.log_area = scrolledtext.ScrolledText(root, width=60, height=20, state='disabled')
-        self.log_area.pack(padx=10, pady=5)
+        # Server Status
+        self.status_label = ttk.Label(self.frame_top, text="Server Status: Stopped", font=("Helvetica", 14),
+                                      style="danger.TLabel")
+        self.status_label.pack(side=LEFT, padx=10)
 
-        # Start/Stop button
-        self.start_button = tk.Button(root, text="Start Server", command=self.start_server)
-        self.start_button.pack(side=tk.LEFT, padx=10, pady=10)
+        # Control Buttons
+        self.start_button = ttk.Button(self.frame_top, text="Start Server", style="success.TButton",
+                                       command=self.start_server)
+        self.start_button.pack(side=LEFT, padx=10)
 
-        self.stop_button = tk.Button(root, text="Stop Server", command=self.stop_server, state='disabled')
-        self.stop_button.pack(side=tk.LEFT, padx=10, pady=10)
+        self.stop_button = ttk.Button(self.frame_top, text="Stop Server", style="danger.TButton",
+                                      command=self.stop_server, state=DISABLED)
+        self.stop_button.pack(side=LEFT, padx=10)
+
+        # Log Area
+        self.log_area = ScrolledText(root, height=15, width=80)
+        self.log_area.pack(padx=10, pady=10)
+        self.log_area.text.configure(state='disabled')  # Disable editing initially
 
         self.server_socket = None
         self.server_thread = None
         self.running = False
 
     def log_message(self, message):
-        self.log_area.configure(state='normal')
-        self.log_area.insert(tk.END, message + "\n")
-        self.log_area.configure(state='disabled')
-        self.log_area.see(tk.END)
+        """Safely log messages to the log area."""
+        self.log_area.text.configure(state='normal')  # Enable editing temporarily
+        self.log_area.text.insert("end", message + "\n")
+        self.log_area.text.configure(state='disabled')  # Disable editing again
+        self.log_area.text.see("end")  # Scr
+
 
     def start_server(self):
         if self.running:
@@ -41,9 +53,9 @@ class ServerGUI:
             return
 
         self.running = True
-        self.status_label.config(text="Server Status: Running", fg="green")
-        self.start_button.config(state='disabled')
-        self.stop_button.config(state='normal')
+        self.status_label.config(text="Server Status: Running", style="success.TLabel")
+        self.start_button.config(state=DISABLED)
+        self.stop_button.config(state=NORMAL)
 
         # Start server thread
         self.server_thread = threading.Thread(target=self.run_server, daemon=True)
@@ -59,9 +71,9 @@ class ServerGUI:
         if self.server_socket:
             self.server_socket.close()
 
-        self.status_label.config(text="Server Status: Stopped", fg="red")
-        self.start_button.config(state='normal')
-        self.stop_button.config(state='disabled')
+        self.status_label.config(text="Server Status: Stopped", style="danger.TLabel")
+        self.start_button.config(state=NORMAL)
+        self.stop_button.config(state=DISABLED)
         self.log_message("Server stopped.")
 
     def run_server(self):
@@ -93,6 +105,6 @@ class ServerGUI:
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ttk.Window(themename="darkly")  # You can change the theme to 'darkly', 'journal', etc.
     gui = ServerGUI(root)
     root.mainloop()
