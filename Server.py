@@ -55,12 +55,16 @@ def send_ping_frame(conn):
     conn.ping(ping_data)
     logging.info("Sent PING frame")
 
-# Periodically send PING frames to keep connection alive
+def is_connection_closed(conn):
+    return conn.state_machine.state == h2.connection.ConnectionState.CLOSED
+
 def ping_thread(conn):
     while True:
         time.sleep(30)  # Send a PING every 30 seconds
-        send_ping_frame(conn)
-        
+        if is_connection_closed(conn):
+            logging.info("Connection is closed, stopping ping thread.")
+            break
+        send_ping_frame(conn)        
    
 
 def send_rst_stream_frame(conn, stream_id, error_code):

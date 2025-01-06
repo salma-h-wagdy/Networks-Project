@@ -50,6 +50,29 @@ Low Priority Requests
 ```
 curl -v --http2 --insecure https://localhost:8443/low-priority --output low.html
 ```
+or for simultaneous requests to test prioritization (needs linux):
+
+install required library :
+```
+sudo apt install nghttp2
+```
+
+then run command :
+
+```sh
+h2load -n 6 -c 3 -m 3 https://localhost:8443/low-priority https://localhost:8443/high-priority
+
+```
+where :
+- n 3: Total number of requests to perform.
+- c 3: Number of concurrent clients.
+- m 3: Maximum number of streams per connection.
+
+The URLs:
+
+    https://localhost:8443/low-priority
+    https://localhost:8443/high-priority
+    
 
 ## Testing Authentication
 You can test authentication using curl:

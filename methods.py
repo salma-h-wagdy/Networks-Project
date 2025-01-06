@@ -4,7 +4,6 @@ import time
 import logging
 import Authentication
 # from Server import encode_headers
-import Server
 from utils import send_continuation_frame, send_data_with_flow_control
 from Cache import CacheManager, generate_etag, get_last_modified_time
 from h2.exceptions import ProtocolError 
@@ -34,6 +33,7 @@ def decode_headers(encoded_headers):
 def handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager , stream_priorities):
     global nonce
     headers = event.headers
+    logging.debug(f"Handling request for stream_id={event.stream_id} with headers: {headers}")
     try:
         if event.stream_ended:
             headers_dict = dict(headers)
@@ -171,9 +171,13 @@ def serve_high_priority(event, conn, connection_window, stream_windows):
             ('content-length', '13'),
             ('content-type', 'text/plain'),
         ]
-        time.sleep(5)
+        logging.debug(f"Serving high priority for stream_id={event.stream_id}")
         conn.send_headers(event.stream_id, response_headers)
+        logging.debug(f"Sent headers for high priority: {response_headers}")
+        # time.sleep(5)
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
+        conn.end_stream(event.stream_id)
+        logging.debug(f"Ended stream for high priority: {event.stream_id}")
     except Exception as e:
         logging.error(f"Exception in serve_high_priority: {e}")
         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
@@ -185,12 +189,17 @@ def serve_low_priority(event, conn, connection_window, stream_windows):
             ('content-length', '12'),
             ('content-type', 'text/plain'),
         ]
-        time.sleep(5)
+        logging.debug(f"Serving low priority for stream_id={event.stream_id}")
         conn.send_headers(event.stream_id, response_headers)
+        logging.debug(f"Sent headers for low priority: {response_headers}")
+        # time.sleep(5)
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
+        conn.end_stream(event.stream_id)
+        logging.debug(f"Ended stream for low priority: {event.stream_id}")
     except Exception as e:
         logging.error(f"Exception in serve_low_priority: {e}")
         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
+
 
 def handle_authentication(event, conn, connection_window, stream_windows, headers_dict):
     global nonce
