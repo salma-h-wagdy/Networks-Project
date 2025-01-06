@@ -18,10 +18,12 @@ class CacheManager:
                         os.remove(cached_path)
                         logging.warning("=3============================================================")
                         logging.info(f"Removed expired cache file: {cached_path}")
+
     def start_cleanup_thread(self):
         cleanup_thread = threading.Thread(target=self.cleanup_expired_files)
         cleanup_thread.daemon = True
         cleanup_thread.start()
+
     def __init__(self, cache_dir="cache", max_age=30):
         self.cache_dir = cache_dir
         self.max_age = max_age  # Cache expiration in seconds
@@ -34,12 +36,12 @@ class CacheManager:
         except Exception as e:
             logging.error(f"Failed to create cache directory {cache_dir}: {e}")
             raise
+
     def _sanitize_path(self, path):
         return path.replace('/', '_').replace('\\', '_')
 
     def is_cached(self, path):
         cached_path = os.path.join(self.cache_dir, self._sanitize_path(path))
-         
         if os.path.exists(cached_path):
             age = time.time() - os.path.getmtime(cached_path)
             logging.info("=5============================================================")
@@ -73,13 +75,9 @@ class CacheManager:
             logging.error(f"Failed to save content to cache for path {path}: {e}")
             raise
 
-
-
-
 # Utility Functions
 def generate_etag(content):
     return hashlib.sha256(content).hexdigest()
-
 
 def get_last_modified_time(path):
     try:
