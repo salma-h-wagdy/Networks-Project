@@ -1,0 +1,61 @@
+# import unittest
+# from unittest.mock import patch
+# import base64
+# import hashlib
+# import time
+# import os
+# from Authentication import authenticate, generate_nonce, sha256_hash
+
+# class TestAuthentication(unittest.TestCase):
+
+#     def setUp(self):
+#         self.nonce = generate_nonce()
+
+#     def test_valid_credentials(self):
+#         username = 'user'
+#         password = '0000'
+#         credentials = f"{username}:{password}"
+#         encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+#         client_hash = sha256_hash(f"{username}:{password}:{self.nonce}")
+#         auth_header = f"{encoded_credentials}:{client_hash}"
+#         headers = {'authorization': auth_header}
+
+#         result = authenticate(headers, self.nonce)
+#         self.assertTrue(result)
+
+#     def test_invalid_credentials(self):
+#         username = 'user'
+#         password = 'wrongpassword'
+#         credentials = f"{username}:{password}"
+#         encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+#         client_hash = sha256_hash(f"{username}:{password}:{self.nonce}")
+#         auth_header = f"{encoded_credentials}:{client_hash}"
+#         headers = {'authorization': auth_header}
+
+#         result = authenticate(headers, self.nonce)
+#         self.assertFalse(result)
+
+#     def test_missing_authorization_header(self):
+#         headers = {}
+
+#         result = authenticate(headers, self.nonce)
+#         self.assertFalse(result)
+
+#     def test_invalid_authorization_format(self):
+#         headers = {'authorization': 'invalidformat'}
+
+#         result = authenticate(headers, self.nonce)
+#         self.assertFalse(result)
+
+#     @patch('Authentication.os.urandom')
+#     @patch('Authentication.time.time')
+#     def test_generate_nonce(self, mock_time, mock_urandom):
+#         mock_time.return_value = 1234567890
+#         mock_urandom.return_value = b'randombytes'
+#         expected_nonce = base64.b64encode(b'1234567890randombytes').decode('utf-8')
+
+#         nonce = generate_nonce()
+#         self.assertEqual(nonce, expected_nonce)
+
+# if __name__ == '__main__':
+#     unittest.main()

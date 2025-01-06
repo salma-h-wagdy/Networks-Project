@@ -108,12 +108,16 @@ def send_ping_frame(conn):
     log_frame_sent(f"PING frame: {ping_data}")
     logging.info("Sent PING frame")
 
-# Periodically send PING frames to keep connection alive
+def is_connection_closed(conn):
+    return conn.state_machine.state == h2.connection.ConnectionState.CLOSED
+
 def ping_thread(conn):
     while True:
-        time.sleep(30)  # Send a PING every 30 seconds
-        send_ping_frame(conn)
-        
+        time.sleep(30)  # send a PING every 30 seconds
+        if is_connection_closed(conn):
+            logging.info("Connection is closed, stopping ping thread.")
+            break
+        send_ping_frame(conn)        
    
 
 def send_rst_stream_frame(conn, stream_id, error_code):
@@ -129,6 +133,34 @@ def send_settings_frame(conn, settings):
 def handle_invalid_frame_in_stream_state(conn, stream_id, frame_type):
     logging.error(f"Invalid frame {frame_type} received in current stream state for stream {stream_id}")
     send_rst_stream_frame(conn, stream_id, h2.errors.PROTOCOL_ERROR)
+    
+# def handle_invalid_frame_in_connection_state(conn, frame_type):
+#     logging.error(f"Invalid frame {frame_type} received in current connection state")
+#     send_goaway_frame(conn, 0, h2.errors.PROTOCOL_ERROR)
+    
+# def handle_invalid_frame(conn, frame_type):
+#     logging.error(f"Invalid frame {frame_type} received")
+#     send_goaway_frame(conn, 0, h2.errors.PROTOCOL_ERROR)
+    
+def prioritise_streams(stream_events, stream_priorities):
+    for event in stream_events:
+        if isinstance(event, RequestReceived):
+            headers_dict = dict(event.headers)
+            path = headers_dict.get(':path', '/')
+            
+            if path == '/high-priority':
+                stream_priorities[event.stream_id] = {'weight': 256}
+            elif path == '/low-priority':
+                stream_priorities[event.stream_id] = {'weight': 0}
+            else:
+                stream_priorities[event.stream_id] = {'weight': 16}
+        logging.info(f"Stream priorities: {stream_priorities}")
+
+    stream_events.sort(key=lambda event: (stream_priorities.get(event.stream_id, {}).get('weight', 16), event.stream_id), reverse=True)
+    return stream_events
+            
+ 
+
     
 def handle_client(client_socket):
     
@@ -184,11 +216,30 @@ def handle_client(client_socket):
                 break
 
             events = conn.receive_data(data)
-            for event in events:
+            
+            # separate connection-level events)
+            connection_events = [event for event in events if not hasattr(event, 'stream_id')]
+            stream_events = [event for event in events if hasattr(event, 'stream_id')]
+            
+            # # sort stream-level events by priority
+            stream_events = prioritise_streams(stream_events, stream_priorities)
+            
+            for event in connection_events:
+                logging.debug(f"Connection-level event received: {event}")
+                
+                if isinstance(event, RemoteSettingsChanged):
+                    logging.info(f"Remote settings changed: {event.changed_settings}")
+                
+                # SETTINGS frame
+                elif isinstance(event, SettingsAcknowledged):
+                    logging.info("Settings acknowledged by the client.")
+            
+            for event in stream_events:
+                
                 logging.debug(f"Event received: {event}")
                 log_event_received(event)
                 if isinstance(event, RequestReceived):
-                    handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager)
+                    handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager, stream_priorities)
                            
                 # Flow Control 
                 elif isinstance(event, DataReceived):
@@ -212,7 +263,7 @@ def handle_client(client_socket):
                         complete_headers = partial_headers.pop(event.stream_id)
                         headers_dict =  dict(complete_headers)
                         path = headers_dict.get(':path', '/')
-                        handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager)
+                        handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager, stream_priorities)
                     else:
                         logging.warning(f"Stream {event.stream_id} ended without receiving headers.")
                     
@@ -229,9 +280,9 @@ def handle_client(client_socket):
                         else:
                             logging.warning(f"Stream {event.stream_id} not found in stream_windows dictionary.")
                 
-                # SETTINGS frame
-                elif isinstance(event, SettingsAcknowledged):
-                    logging.info("Settings acknowledged by the client.")
+                # # SETTINGS frame
+                # elif isinstance(event, SettingsAcknowledged):
+                #     logging.info("Settings acknowledged by the client.")
                     
                 # RST_STREAM Frame
                 elif isinstance(event, StreamReset):
@@ -250,8 +301,8 @@ def handle_client(client_socket):
                     }
 
 
-                elif isinstance(event, RemoteSettingsChanged):
-                    logging.info(f"Remote settings changed: {event.changed_settings}")
+                # elif isinstance(event, RemoteSettingsChanged):
+                #     logging.info(f"Remote settings changed: {event.changed_settings}")
                     
             secure_socket.sendall(conn.data_to_send())
     except Exception as e:

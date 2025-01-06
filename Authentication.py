@@ -33,36 +33,25 @@ def authenticate(headers, nonce): #client_socket
     # headers_dict = {}
     auth_header = headers.get('authorization', None)
     auth_header = dict(headers).get('authorization', None)
-    print(f"authorization : {auth_header}")
+    logging.debug(f".authorization : {auth_header}")
     # auth_header = headers.get('authorization', None)
     if not auth_header:
-        return False
+        return False , None
     
     try:
         encoded_credentials, client_hash = auth_header.split(':')
         username, password = base64.b64decode(encoded_credentials).decode('utf-8').split(':')
         server_hash = sha256_hash(f"{username}:{password}:{nonce}")
-        print(f"client hash{client_hash}, server: {server_hash}")
+        logging.debug(f"client hash{client_hash}, server: {server_hash}")
         
         if username in users and users[username] == password and client_hash == server_hash:
-            return True
+            return True , username
+        else:
+            return False, None
     except Exception as e:
         logging.error(f'Error during authentication: {e}')
-    return False
+        return False , None
+    except Exception as e:
+        logging.error(f"Unexpected error during authentication: {e}")
+        return False, None
     
-    # nonce = generate_nonce()
-    # client_socket.send(f"Nonce: {nonce}\n".encode('utf-8'))
-    
-    # encoded_response = client_socket.recv(1024).decode('utf-8').strip()
-    # encoded_credentials , client_hash = encoded_response.split(':')
-    
-    # username, password = base64.b64decode(encoded_credentials).decode('utf-8').split(':')
-    
-    # server_hash = sha256_hash(f"{username}:{password}:{nonce}")
-    
-    # if username in users and users[username] == password and client_hash == server_hash:
-    #     client_socket.send(b"Authentication successful\n")
-    #     return True
-    # else:
-    #     client_socket.send(b"Authentication failed\nConnection Terminated")
-    #     return False
