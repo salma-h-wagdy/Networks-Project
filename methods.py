@@ -157,6 +157,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows, cache_manage
             ]
             conn.push_stream(event.stream_id, push_stream_id, push_headers)
             logging.debug(f"Sent push promise for style.css on stream {push_stream_id}")
+            Server.log_frame_sent(f"Push Promise frame for style.css on stream {push_stream_id}")
             if cache_manager.is_cached('style.css'):
                 logging.debug("Loading style.css from cache")
                 css_content = cache_manager.load_from_cache('style.css')
@@ -173,6 +174,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows, cache_manage
             conn.send_headers(push_stream_id, push_response_headers)
             connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content, connection_window, stream_windows)
             logging.debug(f"Sent style.css on stream {push_stream_id}")
+            Server.log_responses(f"Pushed style.css on stream {push_stream_id}, {push_response_headers}")
         except FileNotFoundError:
             logging.error("style.css file not found")
             send_error_response(conn, event.stream_id, 404, "Not Found")
@@ -193,6 +195,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows, cache_manage
             ]
             conn.push_stream(event.stream_id, push_stream_id, push_headers)
             logging.debug(f"Sent push promise for script.js on stream {push_stream_id}")
+            Server.log_frame_sent(f"Push Promise frame for script.js on stream {push_stream_id}")
             if cache_manager.is_cached('script.js'):
                 logging.debug("Loading script.js from cache")
                 js_content = cache_manager.load_from_cache('script.js')
@@ -209,6 +212,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows, cache_manage
             conn.send_headers(push_stream_id, push_response_headers)
             connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, js_content, connection_window, stream_windows)
             logging.debug(f"Sent script.js on stream {push_stream_id}")
+            Server.log_responses(f"Pushed script.js on stream {push_stream_id}, {push_response_headers}")
         except FileNotFoundError:
             logging.error("script.js file not found")
             send_error_response(conn, event.stream_id, 404, "Not Found")
@@ -236,6 +240,7 @@ def serve_css(event, conn, connection_window, stream_windows, cache_manager, pat
         ]
         conn.send_headers(event.stream_id, response_headers)
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, css_content, connection_window, stream_windows)
+        Server.log_responses(f"CSS Response for stream {event.stream_id}: {response_headers}")
     except FileNotFoundError:
         logging.error("style.css file not found")
         send_error_response(conn, event.stream_id, 404, "Not Found")
@@ -274,6 +279,7 @@ def serve_welcome_html(event, conn, connection_window, stream_windows, cache_man
         stream_windows[event.stream_id] = conn.remote_settings.initial_window_size
 
     connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, content, connection_window, stream_windows)
+    Server.log_responses(f"Welcome HTML Response for stream {event.stream_id}: {response_headers}")
     # cache_manager.save_to_cache(path, content)
 
     # Server push for style.css
@@ -288,6 +294,7 @@ def serve_welcome_html(event, conn, connection_window, stream_windows, cache_man
             ]
             conn.push_stream(event.stream_id, push_stream_id, push_headers)
             logging.debug(f"Sent push promise for style.css on stream {push_stream_id}")
+            Server.log_frame_sent(f"Push Promise frame for style.css on stream {push_stream_id}")
             if cache_manager.is_cached('style.css'):
                 logging.debug("Loading style.css from cache")
                 css_content = cache_manager.load_from_cache('style.css')
@@ -304,6 +311,7 @@ def serve_welcome_html(event, conn, connection_window, stream_windows, cache_man
             conn.send_headers(push_stream_id, push_response_headers)
             connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content, connection_window, stream_windows)
             logging.debug(f"Sent style.css on stream {push_stream_id}")
+            Server.log_responses(f"Pushed style.css on stream {push_stream_id}, {push_response_headers}")
         except FileNotFoundError:
             logging.error("style.css file not found")
         except ProtocolError:
@@ -323,7 +331,7 @@ def serve_high_priority(event, conn, connection_window, stream_windows):
 
         logging.debug(f"Sent headers for high priority: {response_headers}")
         # time.sleep(5)
-
+        Server.log_responses(f"High Priority Response for stream {event.stream_id}: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
         conn.end_stream(event.stream_id)
         logging.debug(f"Ended stream for high priority: {event.stream_id}")
@@ -343,7 +351,7 @@ def serve_low_priority(event, conn, connection_window, stream_windows):
 
         logging.debug(f"Sent headers for low priority: {response_headers}")
         # time.sleep(5)
-
+        Server.log_responses(f"Low Priority Response for stream {event.stream_id}: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
         conn.end_stream(event.stream_id)
         logging.debug(f"Ended stream for low priority: {event.stream_id}")
@@ -383,7 +391,7 @@ def handle_authentication(event, conn, connection_window, stream_windows, header
                     ('content-type', 'text/plain'),
                 ]
                 conn.send_headers(event.stream_id, response_headers)
-
+                Server.log_responses(f"Authentication Response for stream {event.stream_id}: {response_headers}")
                 connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, username.encode('utf-8'), connection_window, stream_windows)
 
     except Exception as e:
@@ -480,5 +488,5 @@ def send_error_response(conn, stream_id, status_code, message):
         ('content-type', 'text/plain'),
     ]
     conn.send_headers(stream_id, response_headers)
-    Server.log_responses(f"Error response: {status_code} {message}")
+    Server.log_responses(f"Error response: {status_code} {message} {response_headers}")
     conn.send_data(stream_id, message.encode('utf-8'), end_stream=True)
