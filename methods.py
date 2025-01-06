@@ -54,6 +54,7 @@ def handle_request(event, conn, connection_window, stream_windows, stream_states
                 ]
                 encoded_headers = encode_headers(response_headers)
                 conn.send_headers(event.stream_id, response_headers)
+                Server.log_responses(f"Cached Response for stream {event.stream_id}: {response_headers}")
                 connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, cached_content, connection_window, stream_windows)
             else:
                 if method == 'GET':
@@ -118,9 +119,11 @@ def serve_auth_html(event, conn, connection_window, stream_windows):
     headers_size = sum(len(k) + len(v) for k, v in response_headers)
     if headers_size > conn.max_outbound_frame_size:
         conn.send_headers(event.stream_id, response_headers[:1])
+        Server.log_responses(f"Auth HTML Response for stream {event.stream_id}: {response_headers}")
         send_continuation_frame(conn, event.stream_id, response_headers[1:], 0)
     else:
         conn.send_headers(event.stream_id, response_headers)
+        Server.log_responses(f"Auth HTML Response for stream {event.stream_id}: {response_headers}")
 
     if event.stream_id not in stream_windows:
         stream_windows[event.stream_id] = conn.remote_settings.initial_window_size
@@ -137,6 +140,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows):
                 (':path', '/style.css')
             ]
             conn.push_stream(event.stream_id, push_stream_id, push_headers)
+            Server.log_responses(f"Server push for stream {event.stream_id}: {push_headers}")
             with open('templates/style.css', 'r') as f:
                 css_content = f.read()
             push_response_headers = [
@@ -145,6 +149,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows):
                 ('content-type', 'text/css'),
             ]
             conn.send_headers(push_stream_id, push_response_headers)
+            Server.log_responses(f"Server push for stream {event.stream_id}: {push_response_headers}")
             connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
         except FileNotFoundError:
             logging.error("style.css file not found")
@@ -163,6 +168,7 @@ def serve_high_priority(event, conn, connection_window, stream_windows):
             ('content-type', 'text/plain'),
         ]
         conn.send_headers(event.stream_id, response_headers)
+        Server.log_responses(f"High Priority Response for stream {event.stream_id}: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in serve_high_priority: {e}")
@@ -176,6 +182,7 @@ def serve_low_priority(event, conn, connection_window, stream_windows):
             ('content-type', 'text/plain'),
         ]
         conn.send_headers(event.stream_id, response_headers)
+        Server.log_responses(f"Low Priority Response for stream {event.stream_id}: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in serve_low_priority: {e}")
@@ -193,6 +200,7 @@ def handle_authentication(event, conn, connection_window, stream_windows, header
                 ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
             ]
             conn.send_headers(event.stream_id, response_headers, end_stream=True)
+            Server.log_responses(f"Authentication Response for stream {event.stream_id}: {response_headers}")
         else:
             logging.debug(f"nonce is {nonce}")
             authenticated = Authentication.authenticate(headers_dict, nonce)
@@ -203,6 +211,7 @@ def handle_authentication(event, conn, connection_window, stream_windows, header
                     ('www-authenticate', f'Digest realm="test", nonce="{nonce}"')
                 ]
                 conn.send_headers(event.stream_id, response_headers, end_stream=True)
+                Server.log_responses(f"Authentication Response for stream {event.stream_id}: {response_headers}")
             else:
                 response_headers = [
                     (':status', '200'),
@@ -210,6 +219,7 @@ def handle_authentication(event, conn, connection_window, stream_windows, header
                     ('content-type', 'text/plain'),
                 ]
                 conn.send_headers(event.stream_id, response_headers)
+                Server.log_responses(f"Authentication Response for stream {event.stream_id}: {response_headers}")
                 connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Success! :D', connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in handle_authentication: {e}")
@@ -223,6 +233,7 @@ def handle_post_request(event, conn, connection_window, stream_windows, path):
             ('content-type', 'text/plain'),
         ]
         conn.send_headers(event.stream_id, response_headers)
+        Server.log_responses(f"POST request response: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'POST data', connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in handle_post_request: {e}")
@@ -236,6 +247,7 @@ def handle_put_request(event, conn, connection_window, stream_windows, path):
             ('content-type', 'text/plain'),
         ]
         conn.send_headers(event.stream_id, response_headers)
+        Server.log_responses(f"PUT request response: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'PUT data', connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in handle_put_request: {e}")
@@ -249,6 +261,7 @@ def handle_delete_request(event, conn, connection_window, stream_windows, path):
             ('content-type', 'text/plain'),
         ]
         conn.send_headers(event.stream_id, response_headers)
+        Server.log_responses(f"DELETE request response: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Deleted', connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in handle_delete_request: {e}")
@@ -262,6 +275,7 @@ def handle_head_request(event, conn, connection_window, stream_windows, path):
             ('content-type', 'text/plain'),
         ]
         conn.send_headers(event.stream_id, response_headers, end_stream=True)
+        Server.log_responses(f"HEAD request response: {response_headers}")
     except Exception as e:
         logging.error(f"Exception in handle_head_request: {e}")
         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
@@ -273,6 +287,7 @@ def handle_options_request(event, conn, connection_window, stream_windows, path)
             ('allow', 'GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH'),
         ]
         conn.send_headers(event.stream_id, response_headers, end_stream=True)
+        Server.log_responses(f"OPTIONS request response: {response_headers}")
     except Exception as e:
         logging.error(f"Exception in handle_options_request: {e}")
         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
@@ -286,6 +301,7 @@ def handle_patch_request(event, conn, connection_window, stream_windows, path):
             ('content-type', 'text/plain'),
         ]
         conn.send_headers(event.stream_id, response_headers)
+        Server.log_responses(f"PATCH request response: {response_headers}")
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Patched', connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in handle_patch_request: {e}")
@@ -299,4 +315,5 @@ def send_error_response(conn, stream_id, status_code, message):
         ('content-type', 'text/plain'),
     ]
     conn.send_headers(stream_id, response_headers)
+    Server.log_responses(f"Error response: {status_code} {message}")
     conn.send_data(stream_id, message.encode('utf-8'), end_stream=True)
