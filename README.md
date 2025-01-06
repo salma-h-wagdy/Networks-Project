@@ -108,12 +108,12 @@ curl -v --http2 --insecure -u username:password https://localhost:8443/authentic
 ```
 
 ## Testing Methods 
-1. After starting the server , open a terminal and navigate to the directory containing `test methods.py`.
+1. After starting the server , open a terminal and navigate to the directory containing `test_methods.py`.
 2. Execute the following command to start the tests:
 ```sh
     python test methods.py
 ```
-# Known Issues and Troubleshooting
+## Known Issues and Troubleshooting
 - SSL Certificate Issues: If you encounter issues with SSL certificates, ensure that the `server.crt` and `server.key` files are correctly generated and placed in the same directory as `main.py`.
 
 ## Debugging and Logs
