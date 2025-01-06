@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Welcome</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #333;
+        }
+
+        button {
+            font-size: 1.5em;
+            padding: 15px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 id="welcomeMessage"></h1>
+    <button onclick="goBack()">Go Back</button>
+
+    <script>
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function goBack() {
+            window.location.href = '/';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const username = getQueryParam('username');
+            if (username) {
+                document.getElementById('welcomeMessage').innerText = `Authenticated Successfully! Welcome, ${username} :D`;
+            } else {
+                document.getElementById('welcomeMessage').innerText = 'Welcome!';
+            }
+        });
+    </script>
+</body>
+
+</html>

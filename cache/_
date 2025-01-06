@@ -69,7 +69,8 @@
                 document.getElementById('response').innerText = 'Authentication failed.';
             } else {
                 const text = await response.text();
-                document.getElementById('response').innerText = text;
+                console.log("Username received: ", username);
+                window.location.href = `welcome.html?username=${encodeURIComponent(username)}`;
             }
         }
 

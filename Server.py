@@ -60,7 +60,7 @@ def is_connection_closed(conn):
 
 def ping_thread(conn):
     while True:
-        time.sleep(30)  # Send a PING every 30 seconds
+        time.sleep(30)  # send a PING every 30 seconds
         if is_connection_closed(conn):
             logging.info("Connection is closed, stopping ping thread.")
             break

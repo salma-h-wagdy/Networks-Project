@@ -11,7 +11,7 @@ def main():
     
     status_thread = threading.Thread(target=Server.server_status)
     status_thread.daemon = True
-    status_thread.start()
+    status_thread.start() 
     
     while True:
         client_socket, addr = server_socket.accept()

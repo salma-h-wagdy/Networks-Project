@@ -90,6 +90,8 @@ def handle_get_request(event, conn, connection_window, stream_windows, stream_st
     try:
         if path == '/':
             serve_auth_html(event, conn, connection_window, stream_windows,cache_manager,path)
+        elif path.startswith( '/welcome'):
+            serve_welcome_html(event, conn, connection_window, stream_windows,cache_manager,path)
         elif path == '/high-priority':
             serve_high_priority(event, conn, connection_window, stream_windows)
         elif path == '/low-priority':
@@ -136,33 +138,33 @@ def serve_auth_html(event, conn, connection_window, stream_windows,cache_manager
     connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, html_content.encode('utf-8'), connection_window, stream_windows)
     # Save to cache
     cache_manager.save_to_cache(path, html_content.encode('utf-8'))
-    # if conn.remote_settings.enable_push:
-    #     try:
-    #         push_stream_id = conn.get_next_available_stream_id()
-    #         push_headers = [
-    #             (':method', 'GET'),
-    #             (':authority', 'localhost:8443'),
-    #             (':scheme', 'https'),
-    #             (':path', '/style.css')
-    #         ]
-    #         conn.push_stream(event.stream_id, push_stream_id, push_headers)
-    #         with open('templates/style.css', 'r') as f:
-    #             css_content = f.read()
-    #         push_response_headers = [
-    #             (':status', '200'),
-    #             ('content-length', str(len(css_content))),
-    #             ('content-type', 'text/css'),
-    #         ]
-    #         conn.send_headers(push_stream_id, push_response_headers)
-    #         connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
-    #     except FileNotFoundError:
-    #         logging.error("style.css file not found")
-    #         send_error_response(conn, event.stream_id, 404, "Not Found")
-    #     except ProtocolError:
-    #         logging.info("Server push is disabled by the client.")
-    #     except Exception as e:
-    #         logging.error(f"Exception in server push: {e}")
-    #         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
+
+def serve_welcome_html(event, conn, connection_window, stream_windows,cache_manager,path):
+    logging.debug("Serving wel HTML")
+    try:
+        with open('templates/welcome.html', 'r') as f:
+            content = f.read()          
+    except FileNotFoundError:
+        logging.error("welcome.html file not found")
+        send_error_response(conn, event.stream_id, 404, "Not Found")
+        return
+    response_headers = [
+                    (':status', '200'),
+                    ('content-length', str(len(content))),
+                    ('content-type', 'text/html'),
+                ]
+    headers_size = sum(len(k) + len(v) for k, v in response_headers)
+    if headers_size > conn.max_outbound_frame_size:
+        conn.send_headers(event.stream_id, response_headers[:1])
+        send_continuation_frame(conn, event.stream_id, response_headers[1:], 0)
+    else:
+        conn.send_headers(event.stream_id, response_headers)
+
+    if event.stream_id not in stream_windows:
+        stream_windows[event.stream_id] = conn.remote_settings.initial_window_size
+
+    connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, content.encode('utf-8'), connection_window, stream_windows)
+    # cache_manager.save_to_cache(path, content.encode('utf-8'))
 
 def serve_high_priority(event, conn, connection_window, stream_windows):
     try:
@@ -215,7 +217,7 @@ def handle_authentication(event, conn, connection_window, stream_windows, header
             conn.send_headers(event.stream_id, response_headers, end_stream=True)
         else:
             logging.debug(f"nonce is {nonce}")
-            authenticated = Authentication.authenticate(headers_dict, nonce)
+            authenticated , username = Authentication.authenticate(headers_dict, nonce)
             logging.debug(f"Retrieved nonce for stream_id={event.stream_id}: {nonce}")
             if not authenticated:
                 response_headers = [
@@ -226,11 +228,11 @@ def handle_authentication(event, conn, connection_window, stream_windows, header
             else:
                 response_headers = [
                     (':status', '200'),
-                    ('content-length', '13'),
+                    ('content-length', str(len(username))),
                     ('content-type', 'text/plain'),
                 ]
                 conn.send_headers(event.stream_id, response_headers)
-                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Success! :D', connection_window, stream_windows)
+                connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, username.encode('utf-8'), connection_window, stream_windows)
     except Exception as e:
         logging.error(f"Exception in handle_authentication: {e}")
         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
