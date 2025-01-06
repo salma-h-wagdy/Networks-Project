@@ -1,5 +1,5 @@
 
-
+import time
 
 import logging
 import Authentication
@@ -31,7 +31,7 @@ def decode_headers(encoded_headers):
     logging.info(f"Decoded headers size: {decoded_size} bytes")
     return decoded_headers
 
-def handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager):
+def handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager , stream_priorities):
     global nonce
     headers = event.headers
     try:
@@ -43,6 +43,14 @@ def handle_request(event, conn, connection_window, stream_windows, stream_states
             stream_states[event.stream_id] = 'open'  # set initial state of the stream to 'open'
             last_stream_id = event.stream_id
 
+            # if path == '/high-priority':
+            #     stream_priorities[event.stream_id] = {'weight': 256}
+            # elif path == '/low-priority':
+            #     stream_priorities[event.stream_id] = {'weight': 0}
+            # else:
+            #     stream_priorities[event.stream_id] = {'weight': 16}
+
+                
             if cache_manager.is_cached(path):
                 cached_content = cache_manager.load_from_cache(path)
                 response_headers = [
@@ -163,6 +171,7 @@ def serve_high_priority(event, conn, connection_window, stream_windows):
             ('content-length', '13'),
             ('content-type', 'text/plain'),
         ]
+        time.sleep(5)
         conn.send_headers(event.stream_id, response_headers)
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'High Priority', connection_window, stream_windows)
     except Exception as e:
@@ -176,6 +185,7 @@ def serve_low_priority(event, conn, connection_window, stream_windows):
             ('content-length', '12'),
             ('content-type', 'text/plain'),
         ]
+        time.sleep(5)
         conn.send_headers(event.stream_id, response_headers)
         connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, b'Low Priority', connection_window, stream_windows)
     except Exception as e:
