@@ -69,3 +69,21 @@ async function sha256(message) {
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return hashHex;
 }
+
+function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+}
+
+function goBack() {
+    window.location.href = '/';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const username = getQueryParam('username');
+    if (username) {
+        document.getElementById('welcomeMessage').innerText = `Authenticated Successfully! Welcome, ${username} :D`;
+    } else {
+        document.getElementById('welcomeMessage').innerText = 'Welcome!';
+    }
+});

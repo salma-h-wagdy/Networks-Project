@@ -347,6 +347,44 @@ def serve_welcome_html(event, conn, connection_window, stream_windows, cache_man
             logging.info("Server push is disabled by the client.")
         except Exception as e:
             logging.error(f"Exception in server push: {e}")
+
+    if conn.remote_settings.enable_push:
+        try:
+            push_stream_id = conn.get_next_available_stream_id()
+            push_headers = [
+                (':method', 'GET'),
+                (':authority', 'localhost:8443'),
+                (':scheme', 'https'),
+                (':path', '/script.js')
+            ]
+            conn.push_stream(event.stream_id, push_stream_id, push_headers)
+            logging.debug(f"Sent push promise for script.js on stream {push_stream_id}")
+            Server.log_frame_sent(f"Push Promise frame for script.js on stream {push_stream_id}")
+            if cache_manager.is_cached('script.js'):
+                logging.debug("Loading script.js from cache")
+                js_content = cache_manager.load_from_cache('script.js')
+            else:
+                logging.debug("Reading script.js from disk")
+                with open('templates/script.js', 'rb') as f:
+                    js_content = f.read()
+                cache_manager.save_to_cache('script.js', js_content)
+            push_response_headers = [
+                (':status', '200'),
+                ('content-length', str(len(js_content))),
+                ('content-type', 'text/javascript'),
+            ]
+            conn.send_headers(push_stream_id, push_response_headers)
+            connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, js_content, connection_window, stream_windows)
+            logging.debug(f"Sent script.js on stream {push_stream_id}")
+            Server.log_responses(f"Pushed script.js on stream {push_stream_id}, {push_response_headers}")
+        except FileNotFoundError:
+            logging.error("script.js file not found")
+            send_error_response(conn, event.stream_id, 404, "Not Found")
+        except ProtocolError:
+            logging.info("Server push is disabled by the client.")
+        except Exception as e:
+            logging.error(f"Exception in server push: {e}")
+            send_error_response(conn, event.stream_id, 500, "Internal Server Error")
             
 def serve_high_priority(event, conn, connection_window, stream_windows):
     try:
