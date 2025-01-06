@@ -1,55 +1,72 @@
 # Implementing a Server Agent using HTTP Protocol
 ## Overview
 This project aims to deliver a fully functional HTTP/2 server agent that integrates seamlessly with existing web technologies. The server agent will strictly adhere to specified behaviors, scenarios, message formats, and sequences, ensuring robust performance and appropriate error handling.
-## How to Run
-- Running the Server
 
-  Open a terminal and navigate to the directory containing main.py.
-  Execute the following command to start the server:
+The following Python libraries are needed:
+- `h2`
+- `hpack`
+
+Install the required libraries using pip:
+```sh
+python -m pip install h2 hpack
 ```
+## How to Run
+
+### Running the Server
+
+1. Open a terminal and navigate to the directory containing `main.py`.
+2. Ensure you have the SSL certificate and key files \(server.crt and server.key\) in the same directory.
+3. Execute the following command to start the server:
+```sh
     python main.py
 ```
-- Running the Client
+### Using the Browser Client
 
-  Open another terminal and navigate to the directory containing client.py.
-  Execute the following command to start the client:
+1. Open a web browser.
+2. Navigate to the URL where the server is running. For example:
+    ```
+    https://localhost:8443
+    ```
+3. You should see the authentication page. Click the "Authenticate" button and follow the prompts to enter your username and password.
+
+
+## Testing Stream Prioritization
+
+You can test server push using curl :
+
 ```
-    python client.py
-```
-
-## Main Client Functionalities
-
-- **GET Request**
-  - The client sends a GET request to the server.
-  - The server responds with a 200 OK status code and the requested file.
-  - The client displays the file content.
-
-- **POST Request**
-  - The client sends a POST request to the server.
-  - The server responds with a 200 OK status code and the received data.
-  - The client displays the received data.
-
-## Running the Client
-
-- Running the GET Request
-  - After running the client, the user will be prompted to enter the request type (GET or POST or exit).
-  - To run the GET request, the user should enter "GET" and then the file name.
-```
-    GET /filename.html
-```
-- To display server status
-```
-    GET /status
+the curl -v --http2 --insecure https://localhost:8443/ --output index.html 
 ```
 
-- Running the POST Request
-  - After running the client, the user will be prompted to enter the request type (GET or POST or exit).
-  - To run the POST request, the user should enter "POST /submit" and then the required payload to send.
-- Example
+You can test stream prioritization using curl:
+
+High Priority Request
+
 ```
-    POST /submit {"name": "Salma", "age": 22}
+curl -v --http2 --insecure https://localhost:8443/high-priority --output high.html
 ```
-- To exit the client, the user should enter "exit".
+Low Priority Requests 
+
+```
+curl -v --http2 --insecure https://localhost:8443/low-priority --output low.html
+```
+
+## Testing Authentication
+You can test authentication using curl:
+
+```
+curl -v --http2 --insecure -u username:password https://localhost:8443/authenticate
+```
+
+## Testing Methods 
+After starting the server , open a terminal and navigate to the directory containing `test methods.py`.
+2. Execute the following command to start the tests:
+```sh
+    python test methods.py
+```
+
+## Debugging and Logs
+The server logs detailed information about the events and flow control. You can view the logs in the terminal where the server is running to debug and verify the server's behavior.
 
 
 
