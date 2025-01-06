@@ -1,75 +1,66 @@
-# import socket
-# import base64
-# import Authentication
-# import h2.connection
-# import h2.events
+import socket
+import base64
+import Authentication
 
 
-# def start_client():
-#     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#     client.connect(('127.0.0.1', 9999))
+def send_get(client, path):
+    """Send a GET request to the server."""
+    request = f"GET {path} HTTP/1.1\n"
+    client.send(request.encode('utf-8'))
+    response = client.recv(1024).decode('utf-8')
+    print(response)
 
 
-#     conn = h2.connection.H2Connection()
-#     conn.initiate_connection()
-#     client.sendall(conn.data_to_send())
-#     while True:
-#         data = client.recv(65535)
-#         if not data:
-#             break
+def send_post(client, path, payload):
+    """Send a POST request with payload to the server."""
+    request = f"POST {path} HTTP/1.1\n{payload}\n"
+    client.send(request.encode('utf-8'))
+    response = client.recv(1024).decode('utf-8')
+    print(response)
 
-#         events = conn.receive_data(data)
-#         for event in events:
-#             if isinstance(event, h2.events.ResponseReceived):
-#                 headers = dict(event.headers)
-#                 if ':status' in headers and headers[':status'] == '401':
-#                     www_authenticate = headers['www-authenticate']
-#                     nonce = www_authenticate.split('nonce="')[1].split('"')[0]
-                    
-#                     username = input("Username: ")
-#                     password = input("Password: ")
-#                     credentials = f"{username}:{password}"
-#                     encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
-#                     client_hash = Authentication.sha256_hash(f"{username}:{password}:{nonce}")
-#                     auth_header = f'{encoded_credentials}:{client_hash}'
-                    
-#                     headers = [
-#                         (':method', 'GET'),
-#                         (':path', '/'),
-#                         ('authorization', auth_header)
-#                     ]
-#                     conn.send_headers(event.stream_id, headers, end_stream=True)
-#                     client.sendall(conn.data_to_send())
 
-#             elif isinstance(event, h2.events.DataReceived):
-#                 print(event.data.decode('utf-8'))
+def start_client():
+    """Start the client and handle user commands."""
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(('127.0.0.1', 8443))
 
-# if __name__ == "__main__":
-#     start_client()
-    
-    
-#     # username = input("Username: ")
-#     # password = input("Password: ")
-#     # credentials = f"{username}:{password}"
-#     # encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
-    
-#     # #authenticate using digest authentication
-#     # server_message = client.recv(1024).decode('utf-8')
-#     # if server_message.startswith("Nonce:"):
-#     #         nonce = server_message.split(": ")[1].strip()
-#     #         client_hash = Authentication.sha256_hash(f"{username}:{password}:{nonce}")
-#     #         auth_response = f"{encoded_credentials}:{client_hash}"
-#     #         client.send(auth_response.encode('utf-8'))
-            
-#     # while True:
-#     #     # receive & print the server's message
-#     #     server_message = client.recv(1024).decode('utf-8')
-#     #     print(server_message, end='')
-        
-#     #     #send user input 
-#     #     user_input = input()
-#     #     client.send(user_input.encode('utf-8'))
-            
-            
-# if __name__ == "__main__":
-#     start_client()
+    # Authentication
+    username = input("Username: ")
+    password = input("Password: ")
+    credentials = f"{username}:{password}"
+    encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+
+    # Authenticate with nonce
+    server_message = client.recv(1024).decode('utf-8')
+    if server_message.startswith("Nonce:"):
+        nonce = server_message.split(": ")[1].strip()
+        client_hash = Authentication.sha256_hash(f"{username}:{password}:{nonce}")
+        auth_response = f"{encoded_credentials}:{client_hash}"
+        client.send(auth_response.encode('utf-8'))
+
+    # Check authentication result
+    auth_result = client.recv(1024).decode('utf-8')
+    print(auth_result)
+    if "Authentication successful" not in auth_result:
+        client.close()
+        return
+
+    # Main loop for user input
+    while True:
+        command = input("Enter command (GET/POST/exit): ")
+        if command.lower() == "exit":
+            print("Disconnecting...")
+            client.close()
+            break
+        elif command.startswith("GET"):
+            _, path = command.split(maxsplit=1)
+            send_get(client, path)
+        elif command.startswith("POST"):
+            _, path, payload = command.split(maxsplit=2)
+            send_post(client, path, payload)
+        else:
+            print("Invalid command. Use GET, POST, or exit.")
+
+
+if __name__ == "__main__":
+    start_client()

@@ -87,6 +87,8 @@ curl -v --http2 --insecure -u username:password https://localhost:8443/authentic
 ```sh
     python test methods.py
 ```
+# Known Issues and Troubleshooting
+- SSL Certificate Issues: If you encounter issues with SSL certificates, ensure that the server.crt and server.key files are correctly generated and placed in the same directory as main.py.
 
 ## Debugging and Logs
 The server logs detailed information about the events and flow control. You can view the logs in the terminal where the server is running to debug and verify the server's behavior.
