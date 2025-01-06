@@ -3,38 +3,7 @@
 
 <head>
     <title> Authentication </title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
-        }
-
-        h1 {
-            font-size: 2.5em;
-            color: #333;
-        }
-
-        button {
-            font-size: 1.5em;
-            padding: 15px 30px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #45a049;
-        }
-
-        #response {
-            margin-top: 20px;
-            font-size: 1.2em;
-            color: #333;
-        }
-    </style>
+    <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 
 <body>
@@ -42,7 +11,8 @@
     <button onclick="fetchData()">Authenticate</button>
     <div id="response"></div>
 
-    <script>
+    <script src="script.js"></script>
+    <!-- <script>
 
         async function fetchData() {
             const username = prompt("Enter username:");
@@ -115,7 +85,7 @@
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             return hashHex;
         }
-    </script>
+    </script> -->
 </body>
 
 </html>
