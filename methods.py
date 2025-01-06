@@ -81,7 +81,7 @@ def handle_request(event, conn, connection_window, stream_windows, stream_states
 def handle_get_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager, path, headers_dict):
     try:
         if path == '/':
-            serve_auth_html(event, conn, connection_window, stream_windows)
+            serve_auth_html(event, conn, connection_window, stream_windows,cache_manager,path)
         elif path == '/high-priority':
             serve_high_priority(event, conn, connection_window, stream_windows)
         elif path == '/low-priority':
@@ -94,7 +94,7 @@ def handle_get_request(event, conn, connection_window, stream_windows, stream_st
         logging.error(f"Exception in handle_get_request: {e}")
         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
 
-def serve_auth_html(event, conn, connection_window, stream_windows):
+def serve_auth_html(event, conn, connection_window, stream_windows,cache_manager,path):
     logging.debug("Serving auth HTML")
     try:
         with open('templates/auth.html', 'r') as f:
@@ -126,34 +126,35 @@ def serve_auth_html(event, conn, connection_window, stream_windows):
         stream_windows[event.stream_id] = conn.remote_settings.initial_window_size
 
     connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, html_content.encode('utf-8'), connection_window, stream_windows)
-
-    if conn.remote_settings.enable_push:
-        try:
-            push_stream_id = conn.get_next_available_stream_id()
-            push_headers = [
-                (':method', 'GET'),
-                (':authority', 'localhost:8443'),
-                (':scheme', 'https'),
-                (':path', '/style.css')
-            ]
-            conn.push_stream(event.stream_id, push_stream_id, push_headers)
-            with open('templates/style.css', 'r') as f:
-                css_content = f.read()
-            push_response_headers = [
-                (':status', '200'),
-                ('content-length', str(len(css_content))),
-                ('content-type', 'text/css'),
-            ]
-            conn.send_headers(push_stream_id, push_response_headers)
-            connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
-        except FileNotFoundError:
-            logging.error("style.css file not found")
-            send_error_response(conn, event.stream_id, 404, "Not Found")
-        except ProtocolError:
-            logging.info("Server push is disabled by the client.")
-        except Exception as e:
-            logging.error(f"Exception in server push: {e}")
-            send_error_response(conn, event.stream_id, 500, "Internal Server Error")
+    # Save to cache
+    cache_manager.save_to_cache(path, html_content.encode('utf-8'))
+    # if conn.remote_settings.enable_push:
+    #     try:
+    #         push_stream_id = conn.get_next_available_stream_id()
+    #         push_headers = [
+    #             (':method', 'GET'),
+    #             (':authority', 'localhost:8443'),
+    #             (':scheme', 'https'),
+    #             (':path', '/style.css')
+    #         ]
+    #         conn.push_stream(event.stream_id, push_stream_id, push_headers)
+    #         with open('templates/style.css', 'r') as f:
+    #             css_content = f.read()
+    #         push_response_headers = [
+    #             (':status', '200'),
+    #             ('content-length', str(len(css_content))),
+    #             ('content-type', 'text/css'),
+    #         ]
+    #         conn.send_headers(push_stream_id, push_response_headers)
+    #         connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, css_content.encode('utf-8'), connection_window, stream_windows)
+    #     except FileNotFoundError:
+    #         logging.error("style.css file not found")
+    #         send_error_response(conn, event.stream_id, 404, "Not Found")
+    #     except ProtocolError:
+    #         logging.info("Server push is disabled by the client.")
+    #     except Exception as e:
+    #         logging.error(f"Exception in server push: {e}")
+    #         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
 
 def serve_high_priority(event, conn, connection_window, stream_windows):
     try:
