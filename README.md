@@ -64,7 +64,7 @@ h2load -n 6 -c 3 -m 3 https://localhost:8443/low-priority https://localhost:8443
 
 ```
 where :
-- n 3: Total number of requests to perform.
+- n 6: Total number of requests to perform.
 - c 3: Number of concurrent clients.
 - m 3: Maximum number of streams per connection.
 
