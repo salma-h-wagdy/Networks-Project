@@ -3,7 +3,7 @@
 
 <head>
     <title> Authentication </title>
-    <link rel="stylesheet" type="text/css" href="style.css">
+    <!-- <link rel="stylesheet" type="text/css" href="style.css"> -->
 </head>
 
 <body>
@@ -11,8 +11,7 @@
     <button onclick="fetchData()">Authenticate</button>
     <div id="response"></div>
 
-    <script src="script.js"></script>
-    <!-- <script>
+    <script>
 
         async function fetchData() {
             const username = prompt("Enter username:");
@@ -85,7 +84,7 @@
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             return hashHex;
         }
-    </script> -->
+    </script>
 </body>
 
 </html>
