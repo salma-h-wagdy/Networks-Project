@@ -30,3 +30,26 @@ def log_responses(response):
         gui_callback("Responses", message)
     else:
         logging.warning("GUI callback is not set or is not callable.")
+
+def log_event_received(event):
+    """Log events data and send it to the appropriate GUI tab, if registered."""
+    message = f"Event: {event}"
+    logging.info(message)
+
+    if callable(gui_callback):  # Ensure the callback is registered
+        # Determine the appropriate tab based on event type
+        if "RequestReceived" in str(event):
+            gui_callback("Requests", message)
+        else:
+            gui_callback("Frames Received", message)
+    else:
+        logging.warning("GUI callback is not set or is not callable.")
+
+def log_error_exception(error):
+    """Log errors and exceptions to the GUI, if registered."""
+    message = f"Error: {error}"
+    logging.error(message)
+    if callable(gui_callback):
+        gui_callback("Errors", message)
+    else:
+        logging.warning("GUI callback is not set or is not callable.")
