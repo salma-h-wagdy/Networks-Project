@@ -35,7 +35,7 @@ python -m pip install h2 hpack
 You can test server push using curl :
 
 ```
-the curl -v --http2 --insecure https://localhost:8443/ --output index.html 
+curl -v --http2 --insecure https://localhost:8443/ --output index.html 
 ```
 
 You can test stream prioritization using curl:

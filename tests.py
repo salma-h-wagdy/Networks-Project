@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
-from methods import handle_request
+from methods import handle_request, serve_auth_html
 
 class TestHandleRequest(unittest.TestCase):
 
@@ -77,6 +77,21 @@ class TestHandleRequest(unittest.TestCase):
 
         self.conn.send_headers.assert_called()
         self.conn.send_data.assert_called()
+
+    def test_serve_auth_html_with_large_headers(self):
+        self.event.stream_id = 1
+        self.conn.remote_settings.initial_window_size = 65535
+        self.conn.remote_settings.enable_push = False
+
+        # Mock the open function to return a large HTML content
+        with patch('builtins.open', unittest.mock.mock_open(read_data='a' * 1000)):
+            serve_auth_html(self.event, self.conn, self.connection_window, self.stream_windows)
+
+        # Check if continuation frames were used
+        self.conn.send_headers.assert_called()
+        self.conn.send_data.assert_called()
+        self.conn.send_headers.assert_any_call(self.event.stream_id, unittest.mock.ANY)
+        self.conn.send_data.assert_any_call(self.event.stream_id, unittest.mock.ANY)
 
 if __name__ == '__main__':
     unittest.main()
