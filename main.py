@@ -13,6 +13,13 @@ class ServerGUI:
         self.root.title("HTTP/2 Server GUI")
         self.root.geometry("900x600")
 
+        # Set the window and taskbar icon
+        icon_path = "http2-logo.ico"  # Replace with your icon file name
+        try:
+            self.root.iconbitmap(icon_path)  # Use iconbitmap for .ico files
+        except Exception as e:
+            logging.error(f"Failed to set icon: {e}")
+
         # Frame for Control Buttons
         self.frame_top = ttk.Frame(root, padding=10)
         self.frame_top.pack(fill=X, pady=10)
