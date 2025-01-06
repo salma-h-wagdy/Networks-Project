@@ -1,7 +1,7 @@
-import threading
+# import threading
 import unittest
 from unittest.mock import Mock, patch
-from methods import handle_request, serve_auth_html, serve_high_priority, serve_low_priority
+from methods import handle_request, serve_auth_html
 
 class TestHandleRequest(unittest.TestCase):
 

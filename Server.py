@@ -12,12 +12,10 @@ import h2.settings
 # from h2.errors import ErrorCodes , refused_stream_error , REFUSED_STREAM
 import h2.errors
 import logging
-from Cache import CacheManager, generate_etag, get_last_modified_time
-import Authentication
-import hpack
+from Cache import CacheManager
 
+from logs import log_frame_sent , gui_callback
 from methods import handle_request
-from utils import send_continuation_frame, send_data_with_flow_control
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -26,25 +24,7 @@ connected_clients = []
 cache_manager = CacheManager()
 
 # At the top of Server.py
-gui_callback = None  # Global variable to store the GUI's callback function
 
-def register_gui_callback(callback):
-    """Register the GUI's logging function."""
-    global gui_callback
-    if callable(callback):
-        gui_callback = callback
-        logging.info("GUI callback registered successfully.")
-    else:
-        logging.error("Failed to register GUI callback. Provided object is not callable.")
-
-
-def log_frame_sent(frame_data):
-    """Log frame data and send it to the GUI, if registered."""
-    logging.info(f"Frame sent: {frame_data}")
-    if callable(gui_callback):  # Check if gui_callback is callable
-        gui_callback("Frames Sent", f"Frame sent: {frame_data}")
-    else:
-        logging.warning("GUI callback is not set or is not callable.")
 
 def log_event_received(event):
     """Log events data and send it to the appropriate GUI tab, if registered."""
@@ -66,14 +46,6 @@ def log_error_exception(error):
     logging.error(message)
     if callable(gui_callback):
         gui_callback("Errors", message)
-    else:
-        logging.warning("GUI callback is not set or is not callable.")
-
-def log_responses(response):
-    message = f"Response: {response}"
-    logging.info(message)
-    if callable(gui_callback):
-        gui_callback("Responses", message)
     else:
         logging.warning("GUI callback is not set or is not callable.")
 

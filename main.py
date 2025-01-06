@@ -5,7 +5,7 @@ from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
 import Server
 import logging
-
+import logs
 
 class ServerGUI:
     def __init__(self, root):
@@ -99,7 +99,7 @@ class ServerGUI:
             return
 
         # Register the GUI's log_message function as a callback
-        Server.register_gui_callback(self.log_message)
+        logs.register_gui_callback(self.log_message)
 
         self.running = True
         self.status_label.config(text="Server Status: Running", style="success.TLabel")
