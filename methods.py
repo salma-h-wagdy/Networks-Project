@@ -96,6 +96,8 @@ def handle_get_request(event, conn, connection_window, stream_windows, stream_st
             serve_welcome_html(event, conn, connection_window, stream_windows,cache_manager,path)
         elif path == '/style.css':
             serve_css(event, conn, connection_window, stream_windows, cache_manager, path)
+        elif path == '/script.js':
+            serve_js(event, conn, connection_window, stream_windows, cache_manager, path)
         elif path == '/high-priority':
             serve_high_priority(event, conn, connection_window, stream_windows)
         elif path == '/low-priority':
@@ -207,7 +209,7 @@ def serve_auth_html(event, conn, connection_window, stream_windows, cache_manage
             push_response_headers = [
                 (':status', '200'),
                 ('content-length', str(len(js_content))),
-                ('content-type', 'templates/javascript'),
+                ('content-type', 'text/javascript'),
             ]
             conn.send_headers(push_stream_id, push_response_headers)
             connection_window, stream_windows = send_data_with_flow_control(conn, push_stream_id, js_content, connection_window, stream_windows)
@@ -246,6 +248,33 @@ def serve_css(event, conn, connection_window, stream_windows, cache_manager, pat
         send_error_response(conn, event.stream_id, 404, "Not Found")
     except Exception as e:
         logging.error(f"Exception in serve_css: {e}")
+        send_error_response(conn, event.stream_id, 500, "Internal Server Error")
+
+
+def serve_js(event, conn, connection_window, stream_windows, cache_manager, path):
+    logging.debug("Serving JS")
+    try:
+        if cache_manager.is_cached(path):
+            logging.debug("Loading script.js from cache")
+            js_content = cache_manager.load_from_cache(path)
+        else:
+            logging.debug("Reading script.js from disk")
+            with open('templates/script.js', 'rb') as f:
+                js_content = f.read()
+            cache_manager.save_to_cache('script.js', js_content)
+        response_headers = [
+            (':status', '200'),
+            ('content-length', str(len(js_content))),
+            ('content-type', 'text/javascript'),
+        ]
+        conn.send_headers(event.stream_id, response_headers)
+        connection_window, stream_windows = send_data_with_flow_control(conn, event.stream_id, js_content, connection_window, stream_windows)
+        Server.log_responses(f"JS Response for stream {event.stream_id}: {response_headers}")
+    except FileNotFoundError:
+        logging.error("script.js file not found")
+        send_error_response(conn, event.stream_id, 404, "Not Found")
+    except Exception as e:
+        logging.error(f"Exception in serve_js: {e}")
         send_error_response(conn, event.stream_id, 500, "Internal Server Error")
 
 def serve_welcome_html(event, conn, connection_window, stream_windows, cache_manager, path):
