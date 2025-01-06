@@ -3,6 +3,7 @@ import time
 
 import logging
 import Authentication
+import Server
 # from Server import encode_headers
 from utils import send_continuation_frame, send_data_with_flow_control
 from Cache import CacheManager, generate_etag, get_last_modified_time
