@@ -1,5 +1,10 @@
 import logging
+
+import Server
+
 logging.basicConfig(level=logging.DEBUG)
+
+
 
 
 def send_data_with_flow_control(conn, stream_id, data , connection_window , stream_windows):
@@ -30,4 +35,5 @@ def send_continuation_frame(conn, stream_id, headers, offset, max_frame_size=163
         conn.send_continuation(stream_id, chunk, end_stream=False if remaining > max_frame_size else True)
         offset += max_frame_size
     logging.info(f"Sent CONTINUATION frame for stream {stream_id}, header size: {len(headers)}")
+    Server.log_frame_sent(f"CONTINUATION frame for stream {stream_id}, header size: {len(headers)}")
  

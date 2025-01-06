@@ -25,7 +25,57 @@ connected_clients = []
 # Initialize CacheManager
 cache_manager = CacheManager()
 
+# At the top of Server.py
+gui_callback = None  # Global variable to store the GUI's callback function
 
+def register_gui_callback(callback):
+    """Register the GUI's logging function."""
+    global gui_callback
+    if callable(callback):
+        gui_callback = callback
+        logging.info("GUI callback registered successfully.")
+    else:
+        logging.error("Failed to register GUI callback. Provided object is not callable.")
+
+
+def log_frame_sent(frame_data):
+    """Log frame data and send it to the GUI, if registered."""
+    logging.info(f"Frame sent: {frame_data}")
+    if callable(gui_callback):  # Check if gui_callback is callable
+        gui_callback("Frames Sent", f"Frame sent: {frame_data}")
+    else:
+        logging.warning("GUI callback is not set or is not callable.")
+
+def log_event_received(event):
+    """Log events data and send it to the appropriate GUI tab, if registered."""
+    message = f"Event: {event}"
+    logging.info(message)
+
+    if callable(gui_callback):  # Ensure the callback is registered
+        # Determine the appropriate tab based on event type
+        if "RequestReceived" in str(event):
+            gui_callback("Requests", message)
+        else:
+            gui_callback("Frames Received", message)
+    else:
+        logging.warning("GUI callback is not set or is not callable.")
+
+def log_error_exception(error):
+    """Log errors and exceptions to the GUI, if registered."""
+    message = f"Error: {error}"
+    logging.error(message)
+    if callable(gui_callback):
+        gui_callback("Errors", message)
+    else:
+        logging.warning("GUI callback is not set or is not callable.")
+
+def log_responses(response):
+    message = f"Response: {response}"
+    logging.info(message)
+    if callable(gui_callback):
+        gui_callback("Responses", message)
+    else:
+        logging.warning("GUI callback is not set or is not callable.")
 
 
 
@@ -43,16 +93,19 @@ def handle_flow_control_error(conn, stream_id, error_code):
     
 def send_window_update(conn, stream_id, increment):
     conn.increment_flow_control_window(increment, stream_id)
+    log_frame_sent(f"WINDOW_UPDATE frame: stream_id={stream_id}, increment={increment}")
     logging.info(f"Sent WINDOW_UPDATE frame: stream_id={stream_id}, increment={increment}")
 
 def send_goaway_frame(conn, last_stream_id, error_code=0):
     conn.close_connection(error_code=error_code, last_stream_id=last_stream_id)
+    log_frame_sent(f"GOAWAY frame: last_stream_id={last_stream_id}, error_code={error_code}")
     logging.info(f"Sent GOAWAY frame, closing streams after {last_stream_id} with error code {error_code}")
     
 # Send PING frame
 def send_ping_frame(conn):
     ping_data = random.randbytes(8)  # 8-byte random data for PING
     conn.ping(ping_data)
+    log_frame_sent(f"PING frame: {ping_data}")
     logging.info("Sent PING frame")
 
 # Periodically send PING frames to keep connection alive
@@ -65,10 +118,12 @@ def ping_thread(conn):
 
 def send_rst_stream_frame(conn, stream_id, error_code):
     conn.reset_stream(stream_id, error_code)
+    log_frame_sent(f"RST_STREAM frame: stream_id={stream_id}, error_code={error_code}")
     logging.info(f"Sent RST_STREAM frame: stream_id={stream_id}, error_code={error_code}")
     
 def send_settings_frame(conn, settings):
     conn.update_settings(settings)
+    log_frame_sent(f"SETTINGS frame: {settings}")
     logging.info(f"Sent SETTINGS frame: {settings}")
     
 def handle_invalid_frame_in_stream_state(conn, stream_id, frame_type):
@@ -131,6 +186,7 @@ def handle_client(client_socket):
             events = conn.receive_data(data)
             for event in events:
                 logging.debug(f"Event received: {event}")
+                log_event_received(event)
                 if isinstance(event, RequestReceived):
                     handle_request(event, conn, connection_window, stream_windows, stream_states, partial_headers, cache_manager)
                            
@@ -200,6 +256,7 @@ def handle_client(client_socket):
             secure_socket.sendall(conn.data_to_send())
     except Exception as e:
         logging.error(f"Exception in handle_client: {e}")
+        log_error_exception(e)
     finally:
         
         send_goaway_frame(conn, last_stream_id)
@@ -209,10 +266,12 @@ def handle_client(client_socket):
             secure_socket.close()
         except Exception as e:
             logging.error(f"Exception while closing secure_socket: {e}")
+            log_error_exception(e)
         try:
             client_socket.close()
         except Exception as e:
             logging.error(f"Exception while closing client_socket: {e}")
+            log_error_exception(e)
 
 
     
