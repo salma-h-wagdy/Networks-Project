@@ -30,6 +30,23 @@ python -m pip install h2 hpack ttkbootstrap
 
 ### Running the Server
 
+Before running the server, you need to generate your own SSL certificates. Follow these steps to create a self-signed certificate:
+
+1. Generate a private key:
+```sh
+openssl genpkey -algorithm RSA -out server.key
+```
+2. Generate a certificate signing request (CSR):
+```sh
+openssl req -new -key server.key -out server.csr
+```
+3. Generate a self-signed certificate:
+```sh
+openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+```
+
+After generating the certificates, you can run the server:
+
 1. Open a terminal and navigate to the directory containing `main.py`.
 2. Ensure you have the SSL certificate and key files \(server.crt and server.key\) in the same directory.
 3. Execute the following command to start the server:
